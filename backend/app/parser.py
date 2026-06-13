@@ -1,6 +1,7 @@
 """LLM 指令解析器 - 自然语言转 JSON 指令"""
 import json
 import logging
+import re
 from typing import Optional
 import httpx
 
@@ -104,19 +105,30 @@ async def _llm_parse(text: str) -> Optional[Command]:
             result = response.json()
             content = result["choices"][0]["message"]["content"].strip()
 
-            # 提取 JSON
-            if "```" in content:
-                content = content.split("```")[1]
-                if content.startswith("json"):
-                    content = content[4:]
+            # 提取 JSON（支持 markdown 代码块包裹）
+            match = re.search(r'```(?:json)?\s*\n?(.*?)\n?\s*```', content, re.DOTALL)
+            if match:
+                content = match.group(1)
+            content = content.strip()
 
             data = json.loads(content)
 
-            # 构造 Command
-            operation = OperationType(data["operation"])
+            # 构造 Command（带防御性校验）
+            op_str = data.get("operation", "")
+            valid_ops = [e.value for e in OperationType]
+            if op_str not in valid_ops:
+                logger.warning(f"无效操作类型: {op_str}")
+                return None
+            operation = OperationType(op_str)
+
             shape_type = None
             if data.get("shape_type"):
-                shape_type = ShapeType(data["shape_type"])
+                st_str = data["shape_type"]
+                valid_types = [e.value for e in ShapeType]
+                if st_str not in valid_types:
+                    logger.warning(f"无效图形类型: {st_str}")
+                    return None
+                shape_type = ShapeType(st_str)
 
             return Command(
                 operation=operation,

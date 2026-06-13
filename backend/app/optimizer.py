@@ -1,6 +1,9 @@
 """语音指令优化器 - 规则预处理 + LLM 语义优化"""
+import logging
 import re
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 
 class VoiceOptimizer:
@@ -8,8 +11,8 @@ class VoiceOptimizer:
 
     # 填充词
     FILLER_WORDS = [
-        r'(嗯|啊|呃|那个|然后|就是说|怎么说呢)',
-        r'(emm+|umm+|ah+|uh+)',
+        r'(嗯|呃|那个|然后|就是说|怎么说呢)',
+        r'(emmm+|umm+|ah+|uh+)',
         r'\s+',
     ]
 
@@ -160,8 +163,8 @@ class VoiceOptimizer:
                 response.raise_for_status()
                 result = response.json()
                 return result["choices"][0]["message"]["content"].strip()
-        except Exception:
-            # LLM 调用失败时回退到规则预处理
+        except Exception as e:
+            logger.warning(f"LLM 优化失败，回退到规则预处理: {e}")
             return self.rule_preprocess(raw_text)
 
     def _build_system_prompt(self) -> str:
