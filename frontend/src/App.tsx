@@ -4,7 +4,7 @@ import VoicePanel from './components/VoicePanel';
 import StatusPanel from './components/StatusPanel';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useExport } from './hooks/useExport';
-import type { CanvasState } from './types';
+import type { CanvasState, OptimizeResult } from './types';
 import './App.css';
 
 const WS_URL = `ws://${window.location.hostname}:8000/ws`;
@@ -15,6 +15,7 @@ export default function App() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [history, setHistory] = useState<string[]>([]);
   const [error, setError] = useState<string>('');
+  const [optimizeResults, setOptimizeResults] = useState<OptimizeResult[]>([]);
 
   const handleStateUpdate = useCallback((state: CanvasState) => {
     setCanvasState(state);
@@ -37,6 +38,9 @@ export default function App() {
     url: WS_URL,
     onStateUpdate: handleStateUpdate,
     onAsrResult: handleAsrResult,
+    onOptimizeResult: (result) => {
+      setOptimizeResults(prev => [...prev.slice(-4), result]); // 保留最近5条
+    },
     onError: handleError,
   });
 
@@ -85,6 +89,8 @@ export default function App() {
             onSendAudio={handleSendAudio}
             isProcessing={isProcessing}
             asrResult={asrResult}
+            connected={connected}
+            optimizeResults={optimizeResults}
           />
           <StatusPanel
             shapes={canvasState.shapes}
