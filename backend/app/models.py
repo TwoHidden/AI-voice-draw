@@ -49,3 +49,12 @@ class Command(BaseModel):
 class CanvasState(BaseModel):
     shapes: list[Shape] = Field(default_factory=list)
     selected_id: Optional[str] = None
+
+
+class OptimizeResult(BaseModel):
+    """语音指令优化结果"""
+    original: str           # ASR 原始文本
+    rule_processed: str     # 规则预处理结果
+    final: str              # 最终优化结果
+    used_llm: bool          # 是否调用了 LLM
+    confidence: float       # 规则引擎置信度 (0.0 ~ 1.0)
