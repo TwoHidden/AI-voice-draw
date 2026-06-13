@@ -55,8 +55,17 @@ export interface ParsedCommand {
   properties: Record<string, unknown>;
 }
 
+/** 优化结果 */
+export interface OptimizeResult {
+  original: string;        // ASR 原始文本
+  rule_processed: string;  // 规则预处理结果
+  final: string;           // 最终优化结果
+  used_llm: boolean;       // 是否调用了 LLM
+  confidence: number;      // 规则引擎置信度
+}
+
 /** WebSocket 消息类型 */
 export interface WSMessage {
-  type: 'text' | 'audio' | 'state_update' | 'error' | 'asr_result' | 'pong';
-  data: string | CanvasStateResponse;
+  type: 'text' | 'audio' | 'state_update' | 'error' | 'asr_result' | 'pong' | 'optimize_result';
+  data: string | CanvasStateResponse | OptimizeResult;
 }

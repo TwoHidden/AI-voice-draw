@@ -5,6 +5,7 @@ interface UseWebSocketOptions {
   url: string;
   onStateUpdate?: (state: CanvasState) => void;
   onAsrResult?: (text: string) => void;
+  onOptimizeResult?: (result: import('../types').OptimizeResult) => void;
   onError?: (msg: string) => void;
 }
 
@@ -12,7 +13,7 @@ function convertShape(s: ShapeResponse) {
   return { ...s };
 }
 
-export function useWebSocket({ url, onStateUpdate, onAsrResult, onError }: UseWebSocketOptions) {
+export function useWebSocket({ url, onStateUpdate, onAsrResult, onOptimizeResult, onError }: UseWebSocketOptions) {
   const [connected, setConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -20,8 +21,8 @@ export function useWebSocket({ url, onStateUpdate, onAsrResult, onError }: UseWe
   const retryCountRef = useRef(0);
 
   // 用 ref 保存最新回调，避免 useCallback 依赖链问题
-  const callbacksRef = useRef({ onStateUpdate, onAsrResult, onError });
-  callbacksRef.current = { onStateUpdate, onAsrResult, onError };
+  const callbacksRef = useRef({ onStateUpdate, onAsrResult, onOptimizeResult, onError });
+  callbacksRef.current = { onStateUpdate, onAsrResult, onOptimizeResult, onError };
 
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
@@ -45,7 +46,7 @@ export function useWebSocket({ url, onStateUpdate, onAsrResult, onError }: UseWe
     ws.onmessage = (event) => {
       try {
         const msg: WSMessage = JSON.parse(event.data);
-        const { onStateUpdate, onAsrResult, onError } = callbacksRef.current;
+        const { onStateUpdate, onAsrResult, onOptimizeResult, onError } = callbacksRef.current;
         switch (msg.type) {
           case 'state_update':
             const data = msg.data as any;
@@ -56,6 +57,9 @@ export function useWebSocket({ url, onStateUpdate, onAsrResult, onError }: UseWe
             break;
           case 'asr_result':
             onAsrResult?.(msg.data as string);
+            break;
+          case 'optimize_result':
+            onOptimizeResult?.(msg.data as import('../types').OptimizeResult);
             break;
           case 'error':
             onError?.(msg.data as string);
