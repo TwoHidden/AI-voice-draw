@@ -166,9 +166,134 @@ class VoiceOptimizer:
 
         return result
 
-    # 临时保留：供 main.py 使用，将在 Task 5 中替换
+    async def optimize(self, raw_text: str, canvas_state=None) -> OptimizeResult:
+        """主入口：规则引擎 → (可选 LLM) → 返回优化结果"""
+        if not raw_text or not raw_text.strip():
+            return OptimizeResult(
+                original=raw_text or "",
+                rule_processed="",
+                final="",
+                used_llm=False,
+                confidence=0.0,
+            )
+
+        # Layer 1: 规则引擎管道
+        matched_rules = []
+        rule_result = self.denoise(raw_text)
+        if rule_result != raw_text.strip():
+            matched_rules.append("denoise")
+
+        verb_result = self.standardize_verbs(rule_result)
+        if verb_result != rule_result:
+            matched_rules.append("verb")
+
+        shape_result = self.standardize_shapes(verb_result)
+        if shape_result != verb_result:
+            matched_rules.append("shape")
+
+        color_result = self.standardize_colors(shape_result)
+        if color_result != shape_result:
+            matched_rules.append("color")
+
+        ref_result = self.resolve_references(color_result, canvas_state)
+        if ref_result != color_result:
+            matched_rules.append("reference")
+
+        rule_processed = ref_result
+
+        # 计算置信度
+        confidence = self.calculate_confidence(raw_text, rule_processed, matched_rules)
+
+        # Layer 2: 高置信度跳过 LLM
+        if confidence >= 0.7:
+            logger.info(f"规则引擎置信度 {confidence:.2f} >= 0.7，跳过 LLM")
+            return OptimizeResult(
+                original=raw_text,
+                rule_processed=rule_processed,
+                final=rule_processed,
+                used_llm=False,
+                confidence=confidence,
+            )
+
+        # Layer 2: 低置信度，调用 LLM
+        logger.info(f"规则引擎置信度 {confidence:.2f} < 0.7，调用 LLM 优化")
+        llm_result = await self._llm_optimize(raw_text, rule_processed)
+        final = llm_result if llm_result else rule_processed
+
+        return OptimizeResult(
+            original=raw_text,
+            rule_processed=rule_processed,
+            final=final,
+            used_llm=llm_result is not None,
+            confidence=confidence,
+        )
+
+    async def _llm_optimize(self, raw_text: str, rule_processed: str) -> Optional[str]:
+        """LLM 语义优化 — 接收规则预处理结果 + 原始文本"""
+        import httpx
+        from app.config import settings
+
+        if not settings.LLM_API_KEY:
+            return None
+
+        system_prompt = self._build_system_prompt()
+        user_content = f"[规则预处理结果]\n{rule_processed}\n\n[原始语音]\n{raw_text}"
+
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.post(
+                    f"{settings.LLM_BASE_URL}/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {settings.LLM_API_KEY}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": settings.LLM_MODEL,
+                        "messages": [
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_content},
+                        ],
+                        "temperature": 0.1,
+                        "max_tokens": 200,
+                    },
+                )
+                response.raise_for_status()
+                result = response.json()
+                return result["choices"][0]["message"]["content"].strip()
+        except Exception as e:
+            logger.warning(f"LLM 优化失败: {e}")
+            return None
+
+    def _build_system_prompt(self) -> str:
+        return """你是一个语音绘图指令优化器。将口语化的语音输入转换为简洁的标准绘图指令。
+
+规则：
+1. 去除语气词、重复、口误
+2. 保留核心意图和参数
+3. 输出简洁的指令文本
+4. 颜色用中文名即可，解析器会处理
+
+支持的操作：创建、删除、移动、resize、setColor、setText、undo、redo
+支持的形状：rect、circle、ellipse、triangle、diamond、line、arrow
+
+示例：
+输入：嗯那个帮我画一个红色的长方形就是那种大一点的
+输出：创建红色长方形，放大
+
+输入：把那个蓝色的圆弄掉
+输出：删除蓝色圆形
+
+输入：emmm就是把那个方块移到右边去
+输出：移动方块到右边
+
+输入：刚才那个变大一点
+输出：最后创建的图形放大
+
+输入：画个粉红色的三角形放在中间
+输出：创建粉色三角形，放在中间"""
+
     def extract_intent_hint(self, text: str) -> Optional[str]:
-        """从文本中提取意图提示（临时保留）"""
+        """从文本中提取意图提示"""
         keywords = {
             "create": ["创建", "新建", "添加", "画"],
             "delete": ["删除", "清除", "移除"],
@@ -184,7 +309,3 @@ class VoiceOptimizer:
                 if word in text:
                     return intent
         return None
-
-    async def llm_optimize(self, raw_text: str, intent_hint: Optional[str] = None) -> str:
-        """LLM 优化（临时保留，将被 optimize 替代）"""
-        return self.rule_preprocess(raw_text)

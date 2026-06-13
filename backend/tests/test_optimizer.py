@@ -1,6 +1,7 @@
 """优化器单元测试"""
 import pytest
 from app.optimizer import VoiceOptimizer
+from app.models import OptimizeResult
 
 
 class TestDenoiseLayer:
@@ -180,3 +181,37 @@ class TestReferenceResolution:
         """无指代时原文返回"""
         result = self.opt.resolve_references("画一个红色的长方形")
         assert "画" in result or "创建" in result
+
+
+class TestOptimizeMain:
+    """optimize 主入口测试"""
+
+    def setup_method(self):
+        self.opt = VoiceOptimizer()
+
+    @pytest.mark.asyncio
+    async def test_high_confidence_skips_llm(self):
+        """高置信度时跳过 LLM"""
+        result = await self.opt.optimize("画一个红色的长方形")
+        assert isinstance(result, OptimizeResult)
+        assert result.used_llm is False
+        assert result.confidence >= 0.7
+        assert "创建" in result.final
+
+    @pytest.mark.asyncio
+    async def test_empty_input(self):
+        """空输入"""
+        result = await self.opt.optimize("")
+        assert result.original == ""
+        assert result.final == ""
+        assert result.used_llm is False
+
+    @pytest.mark.asyncio
+    async def test_optimize_result_structure(self):
+        """返回结构完整"""
+        result = await self.opt.optimize("撤销")
+        assert result.original == "撤销"
+        assert result.rule_processed != ""
+        assert result.final != ""
+        assert isinstance(result.used_llm, bool)
+        assert 0.0 <= result.confidence <= 1.0
