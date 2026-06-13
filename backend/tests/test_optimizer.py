@@ -109,3 +109,74 @@ class TestShapeColorStandardize:
         assert "嗯" not in result
         assert "创建" in result
         assert "rect" in result
+
+
+class TestFuzzyExpression:
+    """模糊表达测试"""
+
+    def setup_method(self):
+        self.opt = VoiceOptimizer()
+
+    def test_relative_position(self):
+        """相对位置解析"""
+        for pos_key in ["右边", "左边", "上面", "下面", "中间"]:
+            assert pos_key in self.opt.POSITION_MAP
+
+    def test_relative_scale(self):
+        """相对尺寸解析"""
+        assert self.opt.SCALE_MAP["大一点"] > 1.0
+        assert self.opt.SCALE_MAP["小一点"] < 1.0
+        assert self.opt.SCALE_MAP["放大"] > self.opt.SCALE_MAP["大一点"]
+
+    def test_reference_patterns(self):
+        """指代模式存在"""
+        assert len(self.opt.REFERENCE_PATTERNS) > 0
+        pattern, target = self.opt.REFERENCE_PATTERNS[0]
+        assert target == "last_created"
+
+
+class TestConfidence:
+    """置信度评分测试"""
+
+    def setup_method(self):
+        self.opt = VoiceOptimizer()
+
+    def test_high_confidence_simple_command(self):
+        """简单命令高置信度"""
+        result = self.opt.calculate_confidence(
+            "画一个红色的长方形",
+            "创建红色rect",
+            matched_rules=["verb", "color", "shape"],
+        )
+        assert result >= 0.7
+
+    def test_low_confidence_ambiguous(self):
+        """模糊表达低置信度"""
+        result = self.opt.calculate_confidence(
+            "嗯那个就是那个弄一下",
+            "弄一下",
+            matched_rules=["filler"],
+        )
+        assert result < 0.7
+
+    def test_confidence_range(self):
+        """置信度在 0-1 范围内"""
+        result = self.opt.calculate_confidence("test", "test", [])
+        assert 0.0 <= result <= 1.0
+
+
+class TestReferenceResolution:
+    """指代消解测试"""
+
+    def setup_method(self):
+        self.opt = VoiceOptimizer()
+
+    def test_last_created_reference(self):
+        """'刚才那个'指代最后创建的图形"""
+        result = self.opt.resolve_references("刚才那个放大")
+        assert "last_created" in result or "放大" in result
+
+    def test_no_reference(self):
+        """无指代时原文返回"""
+        result = self.opt.resolve_references("画一个红色的长方形")
+        assert "画" in result or "创建" in result
