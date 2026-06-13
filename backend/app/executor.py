@@ -22,8 +22,7 @@ class CommandExecutor:
             return self.redo()
 
         # 保存当前状态用于撤销
-        self.undo_stack.append(self.state.model_copy(deep=True))
-        self.redo_stack.clear()
+        saved_state = self.state.model_copy(deep=True)
 
         handlers = {
             OperationType.CREATE: self._create,
@@ -37,6 +36,11 @@ class CommandExecutor:
         handler = handlers.get(op)
         if handler:
             handler(command)
+
+        # 只有状态实际变化时才推入 undo 栈
+        if self.state.model_dump() != saved_state.model_dump():
+            self.undo_stack.append(saved_state)
+            self.redo_stack.clear()
 
         return self.state
 
