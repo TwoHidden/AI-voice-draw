@@ -57,6 +57,6 @@ export interface ParsedCommand {
 
 /** WebSocket 消息类型 */
 export interface WSMessage {
-  type: 'text' | 'audio' | 'state_update' | 'error' | 'asr_result';
+  type: 'text' | 'audio' | 'state_update' | 'error' | 'asr_result' | 'pong';
   data: string | CanvasStateResponse;
 }

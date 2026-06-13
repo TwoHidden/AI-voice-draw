@@ -36,8 +36,10 @@ export default function VoicePanel({ onSendText, onSendAudio, isProcessing, asrR
           className={`voice-btn ${isRecording ? 'recording' : ''}`}
           onMouseDown={startRecording}
           onMouseUp={stopRecording}
+          onMouseLeave={stopRecording}
           onTouchStart={startRecording}
           onTouchEnd={stopRecording}
+          onTouchCancel={stopRecording}
           disabled={isProcessing}
         >
           {isRecording ? '🔴 录音中...' : '🎤 按住说话'}

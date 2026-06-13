@@ -9,18 +9,19 @@ interface UseWebSocketOptions {
 }
 
 function convertShape(s: ShapeResponse) {
-  return {
-    ...s,
-    fill: s.fill,
-    stroke: s.stroke,
-  };
+  return { ...s };
 }
 
 export function useWebSocket({ url, onStateUpdate, onAsrResult, onError }: UseWebSocketOptions) {
   const [connected, setConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const heartbeatRef = useRef<ReturnType<typeof setInterval>>(undefined);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const heartbeatRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
+  const retryCountRef = useRef(0);
+
+  // 用 ref 保存最新回调，避免 useCallback 依赖链问题
+  const callbacksRef = useRef({ onStateUpdate, onAsrResult, onError });
+  callbacksRef.current = { onStateUpdate, onAsrResult, onError };
 
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
@@ -30,7 +31,9 @@ export function useWebSocket({ url, onStateUpdate, onAsrResult, onError }: UseWe
 
     ws.onopen = () => {
       setConnected(true);
+      retryCountRef.current = 0;
       console.log('WebSocket 已连接');
+
       // 心跳
       heartbeatRef.current = setInterval(() => {
         if (ws.readyState === WebSocket.OPEN) {
@@ -42,6 +45,7 @@ export function useWebSocket({ url, onStateUpdate, onAsrResult, onError }: UseWe
     ws.onmessage = (event) => {
       try {
         const msg: WSMessage = JSON.parse(event.data);
+        const { onStateUpdate, onAsrResult, onError } = callbacksRef.current;
         switch (msg.type) {
           case 'state_update':
             const data = msg.data as any;
@@ -56,6 +60,9 @@ export function useWebSocket({ url, onStateUpdate, onAsrResult, onError }: UseWe
           case 'error':
             onError?.(msg.data as string);
             break;
+          case 'pong':
+            // 心跳响应，连接正常
+            break;
         }
       } catch (e) {
         console.error('消息解析失败:', e);
@@ -65,14 +72,19 @@ export function useWebSocket({ url, onStateUpdate, onAsrResult, onError }: UseWe
     ws.onclose = () => {
       setConnected(false);
       clearInterval(heartbeatRef.current);
-      console.log('WebSocket 断开，3秒后重连...');
-      reconnectTimerRef.current = setTimeout(connect, 3000);
+      console.log('WebSocket 断开');
+
+      // 指数退避重连（3s, 6s, 12s, 最大 30s）
+      const delay = Math.min(3000 * Math.pow(2, retryCountRef.current), 30000);
+      retryCountRef.current++;
+      reconnectTimerRef.current = setTimeout(connect, delay);
     };
 
     ws.onerror = () => {
       setConnected(false);
+      clearInterval(heartbeatRef.current);
     };
-  }, [url, onStateUpdate, onAsrResult, onError]);
+  }, [url]);
 
   useEffect(() => {
     connect();
@@ -90,8 +102,13 @@ export function useWebSocket({ url, onStateUpdate, onAsrResult, onError }: UseWe
   }, []);
 
   const sendAudio = useCallback((blob: Blob) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      blob.arrayBuffer().then(buf => wsRef.current?.send(buf));
+    const ws = wsRef.current;
+    if (ws?.readyState === WebSocket.OPEN) {
+      blob.arrayBuffer().then(buf => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(buf);
+        }
+      });
     }
   }, []);
 
