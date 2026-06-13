@@ -1,4 +1,3 @@
-import React from 'react';
 import type { Shape } from '../types';
 
 interface StatusPanelProps {

@@ -65,7 +65,7 @@ async def parse_command(text: str) -> Optional[Command]:
 
 
 def _try_local_parse(text: str) -> Optional[Command]:
-    """尝试本地快速解析简单指令"""
+    """尝试本地快速解析简单指令（优化器预处理后的文本）"""
     text = text.strip()
 
     # 撤销/重做
@@ -77,6 +77,46 @@ def _try_local_parse(text: str) -> Optional[Command]:
     # 简单删除
     if text in ("删除", "delete", "删除选中"):
         return Command(operation=OperationType.DELETE, properties={})
+
+    # 创建指令（优化器预处理后格式：创建[颜色]形状）
+    valid_shapes = [e.value for e in ShapeType]
+    color_pattern = r'#[0-9A-Fa-f]{6}'
+
+    if text.startswith("创建"):
+        remaining = text[2:].strip()
+        props = {}
+
+        # 提取颜色
+        color_match = re.search(color_pattern, remaining)
+        if color_match:
+            props["fill"] = color_match.group()
+            remaining = remaining[:color_match.start()] + remaining[color_match.end():]
+            remaining = remaining.strip()
+
+        # 提取形状
+        shape_type = None
+        for st in valid_shapes:
+            if st in remaining:
+                shape_type = ShapeType(st)
+                break
+
+        if shape_type:
+            return Command(
+                operation=OperationType.CREATE,
+                shape_type=shape_type,
+                properties=props,
+            )
+
+    # 删除指定形状
+    if text.startswith("删除"):
+        remaining = text[2:].strip()
+        for st in valid_shapes:
+            if st in remaining:
+                return Command(
+                    operation=OperationType.DELETE,
+                    shape_type=ShapeType(st),
+                    properties={},
+                )
 
     return None
 

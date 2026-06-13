@@ -1,5 +1,5 @@
 import React from 'react';
-import type { Shape, ShapeType } from '../types';
+import type { Shape } from '../types';
 
 interface CanvasProps {
   shapes: Shape[];

@@ -78,12 +78,16 @@ async def websocket_endpoint(websocket: WebSocket):
 
 async def _handle_audio(websocket: WebSocket, audio_bytes: bytes):
     """处理音频数据"""
+    logger.info(f"收到音频数据: {len(audio_bytes)} bytes")
+
     # 1. ASR 识别
     text = await asr_service.transcribe(audio_bytes)
     if not text:
-        await websocket.send_json({"type": "error", "data": "语音识别失败"})
+        logger.warning(f"ASR 返回空结果，音频大小: {len(audio_bytes)} bytes")
+        await websocket.send_json({"type": "error", "data": "语音识别失败，请重试"})
         return
 
+    logger.info(f"ASR 识别成功: {text}")
     # 返回 ASR 结果
     await websocket.send_json({"type": "asr_result", "data": text})
 
