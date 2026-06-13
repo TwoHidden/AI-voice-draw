@@ -11,7 +11,7 @@ interface VoicePanelProps {
   optimizeResults?: OptimizeResult[];
 }
 
-export default function VoicePanel({ onSendText, onSendAudio, isProcessing, asrResult, connected, optimizeResults = [] }: VoicePanelProps) {
+export default function VoicePanel({ onSendText, onSendAudio, isProcessing, asrResult, connected: _connected, optimizeResults = [] }: VoicePanelProps) {
   const [textInput, setTextInput] = useState('');
   const [showOptimize, setShowOptimize] = useState(true);
   const { isRecording, startRecording, stopRecording } = useVoice({ onAudioData: onSendAudio });

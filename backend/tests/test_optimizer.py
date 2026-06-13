@@ -215,3 +215,57 @@ class TestOptimizeMain:
         assert result.final != ""
         assert isinstance(result.used_llm, bool)
         assert 0.0 <= result.confidence <= 1.0
+
+
+class TestEndToEnd:
+    """端到端集成测试"""
+
+    def setup_method(self):
+        self.opt = VoiceOptimizer()
+
+    @pytest.mark.asyncio
+    async def test_simple_create_command(self):
+        """简单创建命令 — 高置信度，不调 LLM"""
+        result = await self.opt.optimize("画一个红色的长方形")
+        assert result.used_llm is False
+        assert result.confidence >= 0.7
+        assert "创建" in result.final
+
+    @pytest.mark.asyncio
+    async def test_colloquial_with_filler(self):
+        """口语化命令带语气词"""
+        result = await self.opt.optimize("嗯那个帮我画一个红色的长方形就是那种大一点的")
+        assert "嗯" not in result.final
+        assert "那个" not in result.final
+        assert "创建" in result.final
+
+    @pytest.mark.asyncio
+    async def test_delete_command(self):
+        """删除命令"""
+        result = await self.opt.optimize("把那个蓝色的圆弄掉")
+        assert "删除" in result.final
+
+    @pytest.mark.asyncio
+    async def test_undo_command(self):
+        """撤销命令"""
+        result = await self.opt.optimize("撤销")
+        assert "undo" in result.final
+        assert result.used_llm is False
+
+    @pytest.mark.asyncio
+    async def test_reference_resolution(self):
+        """指代消解"""
+        result = await self.opt.optimize("刚才那个弄大一点")
+        assert "last_created" in result.rule_processed or "放大" in result.final
+
+    @pytest.mark.asyncio
+    async def test_position_expression(self):
+        """相对位置表达"""
+        result = await self.opt.optimize("画一个圆放到右边")
+        assert "创建" in result.final
+
+    @pytest.mark.asyncio
+    async def test_scale_expression(self):
+        """相对尺寸表达"""
+        result = await self.opt.optimize("画一个大一点的长方形")
+        assert "创建" in result.final

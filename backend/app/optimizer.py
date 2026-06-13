@@ -120,8 +120,10 @@ class VoiceOptimizer:
         return result
 
     def rule_preprocess(self, text: str) -> str:
-        """完整规则预处理管道：去噪 → 动词 → 形状 → 颜色"""
-        result = self.denoise(text)
+        """完整规则预处理管道：指代消解 → 去噪 → 颜色指代 → 动词 → 形状 → 颜色"""
+        result = self.resolve_references(text)
+        result = self.denoise(result)
+        result = self.resolve_color_references(result)
         result = self.standardize_verbs(result)
         result = self.standardize_shapes(result)
         result = self.standardize_colors(result)
@@ -154,16 +156,18 @@ class VoiceOptimizer:
         result = text
         for pattern, target in self.REFERENCE_PATTERNS:
             result = re.sub(pattern, target, result)
+        return result
 
-        # 动态匹配 "那个XX的" 模式
-        color_ref = re.search(r"那个(\w+)的", result)
+    def resolve_color_references(self, text: str) -> str:
+        """颜色指代消解 — 匹配 '那个XX的' 中的颜色词（应在去噪后调用）"""
+        result = text
+        color_ref = re.search(r"那个(\w{1,2})的", result)
         if color_ref:
             color_word = color_ref.group(1)
             for color_cn, color_hex in self.COLOR_MAP.items():
                 if color_cn in color_word or color_word in color_cn:
                     result = result[:color_ref.start()] + f"by_color:{color_hex}" + result[color_ref.end():]
                     break
-
         return result
 
     async def optimize(self, raw_text: str, canvas_state=None) -> OptimizeResult:
@@ -178,12 +182,21 @@ class VoiceOptimizer:
             )
 
         # Layer 1: 规则引擎管道
+        # 指代消解必须在去噪之前，否则 "那个" 被移除后 "刚才那个" 无法匹配
         matched_rules = []
-        rule_result = self.denoise(raw_text)
-        if rule_result != raw_text.strip():
+        ref_result = self.resolve_references(raw_text, canvas_state)
+        if ref_result != raw_text:
+            matched_rules.append("reference")
+
+        rule_result = self.denoise(ref_result)
+        if rule_result != ref_result.strip():
             matched_rules.append("denoise")
 
-        verb_result = self.standardize_verbs(rule_result)
+        color_ref_result = self.resolve_color_references(rule_result)
+        if color_ref_result != rule_result:
+            matched_rules.append("color_ref")
+
+        verb_result = self.standardize_verbs(color_ref_result)
         if verb_result != rule_result:
             matched_rules.append("verb")
 
@@ -195,11 +208,7 @@ class VoiceOptimizer:
         if color_result != shape_result:
             matched_rules.append("color")
 
-        ref_result = self.resolve_references(color_result, canvas_state)
-        if ref_result != color_result:
-            matched_rules.append("reference")
-
-        rule_processed = ref_result
+        rule_processed = color_result
 
         # 计算置信度
         confidence = self.calculate_confidence(raw_text, rule_processed, matched_rules)
