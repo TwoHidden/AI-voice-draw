@@ -4,7 +4,7 @@ import VoicePanel from './components/VoicePanel';
 import StatusPanel from './components/StatusPanel';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useExport } from './hooks/useExport';
-import type { CanvasState, OptimizeResult } from './types';
+import type { CanvasState } from './types';
 import './App.css';
 
 const WS_URL = `ws://${window.location.hostname}:8000/ws`;
@@ -15,7 +15,7 @@ export default function App() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [history, setHistory] = useState<string[]>([]);
   const [error, setError] = useState<string>('');
-  const [optimizeResults, setOptimizeResults] = useState<OptimizeResult[]>([]);
+  const [agentResponse, setAgentResponse] = useState<string>('');
 
   const handleStateUpdate = useCallback((state: CanvasState) => {
     setCanvasState(state);
@@ -38,8 +38,9 @@ export default function App() {
     url: WS_URL,
     onStateUpdate: handleStateUpdate,
     onAsrResult: handleAsrResult,
-    onOptimizeResult: (result) => {
-      setOptimizeResults(prev => [...prev.slice(-4), result]); // 保留最近5条
+    onAgentResponse: (text) => {
+      setAgentResponse(text);
+      setHistory(prev => [...prev, `AI: ${text}`]);
     },
     onError: handleError,
   });
@@ -48,12 +49,14 @@ export default function App() {
 
   const handleSendText = useCallback((text: string) => {
     setIsProcessing(true);
+    setAgentResponse('');
     setHistory(prev => [...prev, `发送指令: ${text}`]);
     sendText(text);
   }, [sendText]);
 
   const handleSendAudio = useCallback((blob: Blob) => {
     setIsProcessing(true);
+    setAgentResponse('');
     sendAudio(blob);
   }, [sendAudio]);
 
@@ -90,7 +93,7 @@ export default function App() {
             isProcessing={isProcessing}
             asrResult={asrResult}
             connected={connected}
-            optimizeResults={optimizeResults}
+            agentResponse={agentResponse}
           />
           <StatusPanel
             shapes={canvasState.shapes}

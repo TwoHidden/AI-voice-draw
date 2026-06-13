@@ -230,87 +230,18 @@ body {
   font-style: italic;
 }
 
-/* 优化过程面板 */
-.optimize-panel {
+/* AI 回复 */
+.agent-response {
+  background: #f0fff0;
+  padding: 8px 12px;
+  border-radius: 4px;
   margin-top: 12px;
-  border-top: 1px solid #eee;
-  padding-top: 8px;
-}
-
-.optimize-header {
   font-size: 0.875rem;
-  color: #666;
-  cursor: pointer;
-  padding: 4px 0;
-  user-select: none;
+  border-left: 3px solid #2ecc71;
 }
 
-.optimize-header:hover {
-  color: #333;
-}
-
-.optimize-content {
-  max-height: 300px;
-  overflow-y: auto;
-}
-
-.optimize-item {
-  background: #f8f9fa;
-  border-radius: 6px;
-  padding: 8px 10px;
-  margin-top: 6px;
-  font-size: 0.8rem;
-}
-
-.optimize-row {
-  display: flex;
-  gap: 4px;
-  margin-bottom: 2px;
-}
-
-.optimize-label {
-  color: #888;
-  white-space: nowrap;
-}
-
-.optimize-value {
-  color: #333;
-  word-break: break-all;
-}
-
-.optimize-meta {
-  display: flex;
-  gap: 8px;
-  margin-top: 4px;
-  font-size: 0.75rem;
-}
-
-.confidence {
-  padding: 1px 6px;
-  border-radius: 3px;
-}
-
-.confidence.high {
-  background: #d4edda;
-  color: #155724;
-}
-
-.confidence.low {
-  background: #fff3cd;
-  color: #856404;
-}
-
-.method {
-  padding: 1px 6px;
-  border-radius: 3px;
-}
-
-.method.rule {
-  background: #d1ecf1;
-  color: #0c5460;
-}
-
-.method.llm {
-  background: #e2d5f1;
-  color: #4a1a8a;
+.agent-response .label {
+  color: #2ecc71;
+  margin-right: 4px;
+  font-weight: 600;
 }

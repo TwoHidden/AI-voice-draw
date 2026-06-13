@@ -1,7 +1,11 @@
 """指令执行器 - 执行解析后的图形操作"""
+import json
+import logging
 import uuid
-from typing import Optional
+from typing import Any, Optional
 from app.models import Shape, Command, CanvasState, OperationType, ShapeType
+
+logger = logging.getLogger(__name__)
 
 
 class CommandExecutor:
@@ -123,3 +127,138 @@ class CommandExecutor:
             if shape.id == shape_id:
                 return shape
         return None
+
+    def get_state_summary(self) -> str:
+        """返回画布状态的文字摘要，供 LLM 理解当前状态"""
+        if not self.state.shapes:
+            return "画布为空，没有任何图形。"
+
+        lines = [f"画布上有 {len(self.state.shapes)} 个图形："]
+        for i, shape in enumerate(self.state.shapes, 1):
+            color = shape.fill or "无填充"
+            lines.append(f"{i}. {shape.type.value} (ID: {shape.id}), 颜色: {color}, 位置: ({shape.x}, {shape.y}), 大小: {shape.width}x{shape.height}")
+        if self.state.selected_id:
+            lines.append(f"当前选中: {self.state.selected_id}")
+        return "\n".join(lines)
+
+    def execute_tool_call(self, tool_call: dict[str, Any]) -> CanvasState:
+        """执行单个工具调用，返回新状态"""
+        func = tool_call.get("function", {})
+        name = func.get("name", "")
+        args_str = func.get("arguments", "{}")
+
+        try:
+            args = json.loads(args_str) if isinstance(args_str, str) else args_str
+        except json.JSONDecodeError:
+            args = {}
+
+        logger.info(f"执行工具: {name}({args})")
+
+        if name == "create_shape":
+            return self._tool_create(args)
+        elif name == "delete_shape":
+            return self._tool_delete(args)
+        elif name == "move_shape":
+            return self._tool_move(args)
+        elif name == "resize_shape":
+            return self._tool_resize(args)
+        elif name == "set_color":
+            return self._tool_set_color(args)
+        elif name == "set_text":
+            return self._tool_set_text(args)
+        elif name == "undo":
+            return self.undo()
+        elif name == "redo":
+            return self.redo()
+        else:
+            logger.warning(f"未知工具: {name}")
+            return self.state
+
+    def _tool_create(self, args: dict) -> CanvasState:
+        """工具调用：创建图形"""
+        shape_type_str = args.get("shape_type", "rect")
+        try:
+            shape_type = ShapeType(shape_type_str)
+        except ValueError:
+            shape_type = ShapeType.RECT
+
+        command = Command(
+            operation=OperationType.CREATE,
+            shape_type=shape_type,
+            properties={
+                "x": args.get("x", 400.0),
+                "y": args.get("y", 300.0),
+                "width": args.get("width", 200.0),
+                "height": args.get("height", 150.0),
+                "fill": args.get("fill", "#4A90D9"),
+                "stroke": args.get("stroke", "#2C3E50"),
+            }
+        )
+        return self.execute(command)
+
+    def _tool_delete(self, args: dict) -> CanvasState:
+        """工具调用：删除图形"""
+        target_id = args.get("target_id")
+        shape_type_str = args.get("shape_type")
+
+        # 如果没有指定 target_id，按形状类型删除最近一个
+        if not target_id and shape_type_str:
+            for shape in reversed(self.state.shapes):
+                if shape.type.value == shape_type_str:
+                    target_id = shape.id
+                    break
+
+        command = Command(
+            operation=OperationType.DELETE,
+            target_id=target_id or self.state.selected_id,
+            properties={}
+        )
+        return self.execute(command)
+
+    def _tool_move(self, args: dict) -> CanvasState:
+        """工具调用：移动图形"""
+        command = Command(
+            operation=OperationType.MOVE,
+            target_id=args.get("target_id"),
+            properties={"x": args.get("x"), "y": args.get("y")}
+        )
+        return self.execute(command)
+
+    def _tool_resize(self, args: dict) -> CanvasState:
+        """工具调用：调整大小"""
+        target_id = args.get("target_id")
+        width = args.get("width")
+        height = args.get("height")
+        scale = args.get("scale")
+
+        # 如果指定了缩放比例，计算新的宽高
+        if scale and target_id:
+            shape = self._find_shape(target_id)
+            if shape:
+                width = shape.width * scale
+                height = shape.height * scale
+
+        command = Command(
+            operation=OperationType.RESIZE,
+            target_id=target_id,
+            properties={"width": width, "height": height}
+        )
+        return self.execute(command)
+
+    def _tool_set_color(self, args: dict) -> CanvasState:
+        """工具调用：设置颜色"""
+        command = Command(
+            operation=OperationType.SET_COLOR,
+            target_id=args.get("target_id"),
+            properties={"fill": args.get("fill"), "stroke": args.get("stroke")}
+        )
+        return self.execute(command)
+
+    def _tool_set_text(self, args: dict) -> CanvasState:
+        """工具调用：设置文字"""
+        command = Command(
+            operation=OperationType.SET_TEXT,
+            target_id=args.get("target_id"),
+            properties={"text": args.get("text", "")}
+        )
+        return self.execute(command)

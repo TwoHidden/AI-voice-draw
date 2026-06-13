@@ -9,8 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.models import CanvasState, Command
 from app.executor import CommandExecutor
-from app.optimizer import VoiceOptimizer
-from app.parser import parse_command
+from app.agent import agent
 from app.asr import asr_service
 
 logging.basicConfig(level=logging.INFO)
@@ -28,7 +27,6 @@ app.add_middleware(
 
 # 全局实例
 executor = CommandExecutor()
-optimizer = VoiceOptimizer()
 
 
 @app.get("/health")
@@ -53,7 +51,7 @@ async def websocket_endpoint(websocket: WebSocket):
             message = await websocket.receive()
 
             if "bytes" in message:
-                # 音频数据 → ASR → 优化 → 解析 → 执行
+                # 音频数据 → ASR → Agent → 执行
                 audio_bytes = message["bytes"]
                 await _handle_audio(websocket, audio_bytes)
 
@@ -64,7 +62,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 msg_type = data.get("type", "text")
 
                 if msg_type == "text":
-                    # 文本指令 → 优化 → 解析 → 执行
+                    # 文本指令 → Agent → 执行
                     await _handle_text(websocket, data.get("data", ""))
                 elif msg_type == "ping":
                     await websocket.send_json({"type": "pong"})
@@ -101,39 +99,32 @@ async def _handle_text(websocket: WebSocket, text: str):
 
 
 async def _process_and_execute(websocket: WebSocket, raw_text: str):
-    """处理文本指令：优化 → 解析 → 执行 → 响应"""
-    # 获取当前画布状态用于指代消解
-    canvas_state = executor.state
+    """处理文本指令：Agent → 执行 → 响应"""
+    # 获取当前画布状态摘要
+    canvas_state = executor.get_state_summary()
 
-    # 优化指令
-    opt_result = await optimizer.optimize(raw_text, canvas_state)
+    # 调用 LLM Agent
+    result = await agent.process(raw_text, canvas_state)
 
-    # 发送优化结果给前端
-    await websocket.send_json({
-        "type": "optimize_result",
-        "data": {
-            "original": opt_result.original,
-            "rule_processed": opt_result.rule_processed,
-            "final": opt_result.final,
-            "used_llm": opt_result.used_llm,
-            "confidence": opt_result.confidence,
-        },
-    })
+    # 如果 LLM 有文字回复，发送给前端
+    if result.text_response:
+        await websocket.send_json({
+            "type": "agent_response",
+            "data": result.text_response,
+        })
 
-    # 用优化后的文本进行解析
-    command = await parse_command(opt_result.final)
-    if not command:
+    # 执行工具调用
+    if not result.tool_calls:
         await websocket.send_json({"type": "error", "data": "无法理解指令，请重试"})
         return
 
-    # 执行指令
-    new_state = executor.execute(command)
-
-    # 发送更新后的画布状态
-    await websocket.send_json({
-        "type": "state_update",
-        "data": new_state.model_dump(),
-    })
+    for tool_call in result.tool_calls:
+        new_state = executor.execute_tool_call(tool_call)
+        # 发送更新后的画布状态
+        await websocket.send_json({
+            "type": "state_update",
+            "data": new_state.model_dump(),
+        })
 
 
 if __name__ == "__main__":

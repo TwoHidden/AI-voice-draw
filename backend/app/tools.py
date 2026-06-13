@@ -1,0 +1,260 @@
+"""绘图工具定义 - 供 LLM Function Calling 使用"""
+import logging
+from typing import Any
+
+logger = logging.getLogger(__name__)
+
+# 颜色映射表
+COLOR_MAP = {
+    "红": "#FF0000", "红色": "#FF0000", "red": "#FF0000",
+    "蓝": "#0000FF", "蓝色": "#0000FF", "blue": "#0000FF",
+    "绿": "#00FF00", "绿色": "#00FF00", "green": "#00FF00",
+    "黄": "#FFFF00", "黄色": "#FFFF00", "yellow": "#FFFF00",
+    "紫": "#800080", "紫色": "#800080", "purple": "#800080",
+    "橙": "#FFA500", "橙色": "#FFA500", "orange": "#FFA500",
+    "粉": "#FFC0CB", "粉色": "#FFC0CB", "pink": "#FFC0CB",
+    "黑": "#000000", "黑色": "#000000", "black": "#000000",
+    "白": "#FFFFFF", "白色": "#FFFFFF", "white": "#FFFFFF",
+    "灰": "#808080", "灰色": "#808080", "gray": "#808080",
+    "深蓝": "#00008B", "浅蓝": "#ADD8E6",
+    "深红": "#8B0000", "浅红": "#FFB6C1",
+    "深绿": "#006400", "浅绿": "#90EE90",
+}
+
+# Tools Schema (OpenAI Function Calling 格式)
+TOOLS_SCHEMA = [
+    {
+        "type": "function",
+        "function": {
+            "name": "create_shape",
+            "description": "创建一个新的图形。支持长方形、圆形、椭圆、三角形、菱形、线条、箭头。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "shape_type": {
+                        "type": "string",
+                        "enum": ["rect", "circle", "ellipse", "triangle", "diamond", "line", "arrow"],
+                        "description": "图形类型：rect(长方形), circle(圆形), ellipse(椭圆), triangle(三角形), diamond(菱形), line(线条), arrow(箭头)"
+                    },
+                    "fill": {
+                        "type": "string",
+                        "description": "填充颜色，十六进制格式，如 #FF0000"
+                    },
+                    "stroke": {
+                        "type": "string",
+                        "description": "边框颜色，十六进制格式"
+                    },
+                    "x": {
+                        "type": "number",
+                        "description": "X坐标，默认400"
+                    },
+                    "y": {
+                        "type": "number",
+                        "description": "Y坐标，默认300"
+                    },
+                    "width": {
+                        "type": "number",
+                        "description": "宽度，默认200"
+                    },
+                    "height": {
+                        "type": "number",
+                        "description": "高度，默认150"
+                    }
+                },
+                "required": ["shape_type"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "delete_shape",
+            "description": "删除指定图形或最近创建的图形",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "target_id": {
+                        "type": "string",
+                        "description": "要删除的图形ID"
+                    },
+                    "shape_type": {
+                        "type": "string",
+                        "enum": ["rect", "circle", "ellipse", "triangle", "diamond", "line", "arrow"],
+                        "description": "删除指定类型的最近一个图形"
+                    }
+                }
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "move_shape",
+            "description": "移动图形到新位置",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "target_id": {
+                        "type": "string",
+                        "description": "要移动的图形ID"
+                    },
+                    "x": {
+                        "type": "number",
+                        "description": "新的X坐标"
+                    },
+                    "y": {
+                        "type": "number",
+                        "description": "新的Y坐标"
+                    }
+                },
+                "required": ["target_id", "x", "y"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "resize_shape",
+            "description": "调整图形大小，可以指定具体尺寸或缩放比例",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "target_id": {
+                        "type": "string",
+                        "description": "要调整的图形ID"
+                    },
+                    "width": {
+                        "type": "number",
+                        "description": "新的宽度"
+                    },
+                    "height": {
+                        "type": "number",
+                        "description": "新的高度"
+                    },
+                    "scale": {
+                        "type": "number",
+                        "description": "缩放比例，如1.5表示放大50%，0.5表示缩小50%"
+                    }
+                },
+                "required": ["target_id"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "set_color",
+            "description": "修改图形颜色",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "target_id": {
+                        "type": "string",
+                        "description": "要修改的图形ID"
+                    },
+                    "fill": {
+                        "type": "string",
+                        "description": "新的填充颜色，十六进制格式"
+                    },
+                    "stroke": {
+                        "type": "string",
+                        "description": "新的边框颜色，十六进制格式"
+                    }
+                },
+                "required": ["target_id"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "set_text",
+            "description": "为图形添加或修改文字",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "target_id": {
+                        "type": "string",
+                        "description": "要添加文字的图形ID"
+                    },
+                    "text": {
+                        "type": "string",
+                        "description": "文字内容"
+                    }
+                },
+                "required": ["target_id", "text"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "undo",
+            "description": "撤销上一步操作",
+            "parameters": {
+                "type": "object",
+                "properties": {}
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "redo",
+            "description": "重做上一步撤销的操作",
+            "parameters": {
+                "type": "object",
+                "properties": {}
+            }
+        }
+    }
+]
+
+
+def get_system_prompt(canvas_state: str = "") -> str:
+    """生成 System Prompt"""
+    return f"""你是 AI 绘图助手。根据用户的语音或文字指令，调用工具完成绘图操作。
+
+## 能力
+- 创建、删除、移动、缩放、改颜色、加文字
+- 撤销、重做
+- 理解口语化表达
+
+## 颜色映射
+当用户提到颜色时，转换为十六进制：
+- 红色 → #FF0000
+- 蓝色 → #0000FF
+- 绿色 → #00FF00
+- 黄色 → #FFFF00
+- 紫色 → #800080
+- 橙色 → #FFA500
+- 粉色 → #FFC0CB
+- 黑色 → #000000
+- 白色 → #FFFFFF
+- 灰色 → #808080
+
+如果用户说"深蓝"、"浅蓝"等，使用合理的变体。
+
+## 位置推断
+- 左边 → x: 150
+- 中间 → x: 400
+- 右边 → x: 650
+- 上边 → y: 150
+- 下边 → y: 450
+
+## 默认大小
+- 长方形: width=200, height=150
+- 圆形: width=150, height=150
+- 椭圆: width=200, height=120
+- 三角形: width=180, height=160
+
+## 规则
+1. 理解口语化表达，去除语气词、重复、口误
+2. 支持一次调用多个工具（如"画一个红色长方形和蓝色圆形"）
+3. 如果指令模糊，使用合理默认值而非询问
+4. 颜色必须是十六进制格式
+5. 只调用工具，不要输出额外解释
+
+## 当前画布状态
+{canvas_state}
+"""

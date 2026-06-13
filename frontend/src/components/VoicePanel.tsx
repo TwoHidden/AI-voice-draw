@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useVoice } from '../hooks/useVoice';
-import type { OptimizeResult } from '../types';
 
 interface VoicePanelProps {
   onSendText: (text: string) => void;
@@ -8,12 +7,11 @@ interface VoicePanelProps {
   isProcessing: boolean;
   asrResult?: string;
   connected?: boolean;
-  optimizeResults?: OptimizeResult[];
+  agentResponse?: string;
 }
 
-export default function VoicePanel({ onSendText, onSendAudio, isProcessing, asrResult, connected: _connected, optimizeResults = [] }: VoicePanelProps) {
+export default function VoicePanel({ onSendText, onSendAudio, isProcessing, asrResult, connected: _connected, agentResponse }: VoicePanelProps) {
   const [textInput, setTextInput] = useState('');
-  const [showOptimize, setShowOptimize] = useState(true);
   const { isRecording, startRecording, stopRecording } = useVoice({ onAudioData: onSendAudio });
 
   const handleTextSubmit = (e: React.FormEvent) => {
@@ -60,42 +58,11 @@ export default function VoicePanel({ onSendText, onSendAudio, isProcessing, asrR
         </button>
       </form>
 
-      {/* 优化过程面板 */}
-      {optimizeResults.length > 0 && (
-        <div className="optimize-panel">
-          <div className="optimize-header" onClick={() => setShowOptimize(!showOptimize)}>
-            📝 优化过程 {showOptimize ? '▼' : '▶'}
-          </div>
-          {showOptimize && (
-            <div className="optimize-content">
-              {optimizeResults.map((r, i) => (
-                <div key={i} className="optimize-item">
-                  <div className="optimize-row">
-                    <span className="optimize-label">🎙️ 原始语音:</span>
-                    <span className="optimize-value">"{r.original}"</span>
-                  </div>
-                  <div className="optimize-row">
-                    <span className="optimize-label">⚡ 规则预处理:</span>
-                    <span className="optimize-value">"{r.rule_processed}"</span>
-                  </div>
-                  {r.used_llm && (
-                    <div className="optimize-row">
-                      <span className="optimize-label">🤖 AI 优化:</span>
-                      <span className="optimize-value">"{r.final}"</span>
-                    </div>
-                  )}
-                  <div className="optimize-meta">
-                    <span className={`confidence ${r.confidence >= 0.7 ? 'high' : 'low'}`}>
-                      置信度: {Math.round(r.confidence * 100)}%
-                    </span>
-                    <span className={`method ${r.used_llm ? 'llm' : 'rule'}`}>
-                      {r.used_llm ? 'AI 优化' : '规则引擎'}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+      {/* AI 回复 */}
+      {agentResponse && (
+        <div className="agent-response">
+          <span className="label">🤖 AI：</span>
+          <span>{agentResponse}</span>
         </div>
       )}
     </div>
