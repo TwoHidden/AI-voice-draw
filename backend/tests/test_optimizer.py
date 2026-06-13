@@ -258,3 +258,19 @@ class TestEndToEnd:
         """相对尺寸表达"""
         result = await self.opt.optimize("画一个大一点的长方形")
         assert "创建" in result.final
+
+    @pytest.mark.asyncio
+    async def test_colloquial_want_to_create(self):
+        """口语化：我们要不我创建一个蓝色的圆形"""
+        result = await self.opt.optimize("我们要不我创建一个蓝色的圆形")
+        # "我们要不我" 应被清理
+        assert "要不" not in result.final
+        # 蓝色应被标准化
+        assert "#0000FF" in result.final
+        # 圆形应被标准化
+        assert "circle" in result.final
+        # 不应有 "circle形" 残留
+        assert "circle形" not in result.final
+        # 不应有标点残留
+        assert "，" not in result.final
+        assert "。" not in result.final

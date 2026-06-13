@@ -15,6 +15,10 @@ class VoiceOptimizer:
         "嗯", "啊", "呃", "那个", "就是", "emmm", "ummm", "umm",
         "然后", "然后呢", "就是说", "怎么说呢", "对对对", "好的",
         "这个", "呢", "吧", "呀", "嘛",
+        "我们要不", "要不我", "要不", "帮我", "给我", "我想", "我想要",
+        "你看", "你帮", "能不能", "可以", "麻烦", "请",
+        "那么", "这么", "那样", "这样", "对吧", "知道吗",
+        "其实", "好像", "差不多", "大概", "可能",
     ]
 
     # 动词标准化映射
@@ -67,11 +71,16 @@ class VoiceOptimizer:
         (r"第三个", "index:2"),
     ]
 
+    # 标点符号正则（中文+英文标点，不含方括号避免转义问题）
+    PUNCT_RE = re.compile(r'[，。！？、；：""''（）【】,.!?;:\'"()]')
+
     def denoise(self, text: str) -> str:
-        """Layer 1.1: 去噪 — 移除语气词和填充词"""
+        """Layer 1.1: 去噪 — 移除语气词、填充词和标点"""
         if not text or not text.strip():
             return ""
         result = text.strip()
+        # 移除标点符号
+        result = self.PUNCT_RE.sub('', result)
         for filler in self.FILLER_WORDS:
             result = result.replace(filler, "")
         # 清理多余空格
@@ -89,8 +98,13 @@ class VoiceOptimizer:
     def standardize_shapes(self, text: str) -> str:
         """Layer 1.3: 形状标准化"""
         result = text
+        # 先合并可能被空格分开的"X形"（如"圆 形"→"圆形"）
+        result = re.sub(r'(圆|椭圆|三角|菱)\s*形', r'\1形', result)
         for alias, standard in sorted(self.SHAPE_MAP.items(), key=lambda x: -len(x[0])):
             result = result.replace(alias, standard)
+        # 清理残留的"形"后缀（如"circle形"→"circle"）
+        for shape_en in set(self.SHAPE_MAP.values()):
+            result = result.replace(f"{shape_en}形", shape_en)
         return result
 
     def standardize_colors(self, text: str) -> str:
@@ -270,4 +284,3 @@ class VoiceOptimizer:
 
 输入：画个粉红色的三角形放在中间
 输出：创建粉色三角形，放在中间"""
-
