@@ -14,13 +14,23 @@
 
 | 层 | 技术 | 版本 |
 |---|---|---|
-| 前端 | React 18 + TypeScript + Vite | 18.x |
+| 前端 | React 19 + TypeScript + Vite | 19.x |
 | 后端 | Python + FastAPI | 0.115.6 |
 | 语音识别 | FunASR (paraformer-zh) | 本地部署 |
 | LLM | mimo-v2.5-pro (OpenAI 兼容) | API |
 | 通信 | WebSocket | - |
 
 ## 启动步骤
+
+### 环境变量
+
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| `LLM_API_KEY` | LLM API 密钥 | 必填 |
+| `LLM_BASE_URL` | LLM API 地址 | `https://api.example.com/v1` |
+| `LLM_MODEL` | LLM 模型名 | `mimo-v2.5-pro` |
+| `DEBUG` | 调试模式 | `false` |
+| `PORT` | 服务端口 | `8000` |
 
 ### 后端
 
