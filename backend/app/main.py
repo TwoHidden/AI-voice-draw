@@ -101,21 +101,35 @@ async def _handle_text(websocket: WebSocket, text: str):
 
 
 async def _process_and_execute(websocket: WebSocket, raw_text: str):
-    """优化 → 解析 → 执行"""
-    # 1. 优化
-    intent_hint = optimizer.extract_intent_hint(raw_text)
-    optimized = await optimizer.llm_optimize(raw_text, intent_hint)
+    """处理文本指令：优化 → 解析 → 执行 → 响应"""
+    # 获取当前画布状态用于指代消解
+    canvas_state = executor.state
 
-    # 2. 解析
-    command = await parse_command(optimized)
+    # 优化指令
+    opt_result = await optimizer.optimize(raw_text, canvas_state)
+
+    # 发送优化结果给前端
+    await websocket.send_json({
+        "type": "optimize_result",
+        "data": {
+            "original": opt_result.original,
+            "rule_processed": opt_result.rule_processed,
+            "final": opt_result.final,
+            "used_llm": opt_result.used_llm,
+            "confidence": opt_result.confidence,
+        },
+    })
+
+    # 用优化后的文本进行解析
+    command = await parse_command(opt_result.final)
     if not command:
-        await websocket.send_json({"type": "error", "data": f"无法解析指令: {optimized}"})
+        await websocket.send_json({"type": "error", "data": "无法理解指令，请重试"})
         return
 
-    # 3. 执行
+    # 执行指令
     new_state = executor.execute(command)
 
-    # 4. 返回新状态
+    # 发送更新后的画布状态
     await websocket.send_json({
         "type": "state_update",
         "data": new_state.model_dump(),
