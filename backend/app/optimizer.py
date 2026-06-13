@@ -8,8 +8,8 @@ class VoiceOptimizer:
 
     # 填充词
     FILLER_WORDS = [
-        r'\b(嗯|啊|呃|那个|然后|就是说|怎么说呢)\b',
-        r'\b(emm+|umm+|ah+|uh+)\b',
+        r'(嗯|啊|呃|那个|然后|就是说|怎么说呢)',
+        r'(emm+|umm+|ah+|uh+)',
         r'\s+',
     ]
 
@@ -109,11 +109,11 @@ class VoiceOptimizer:
     def extract_intent_hint(self, text: str) -> Optional[str]:
         """从预处理文本中提取意图提示"""
         keywords = {
-            'create': ['创建', '新建', '添加'],
-            'delete': ['删除', '清除', '移除'],
-            'move': ['移动', '位移', '调整位置'],
+            'create': ['创建', '新建', '添加', '画'],
+            'delete': ['删除', '清除', '移除', '删掉', '弄掉', '去掉', '拿掉'],
+            'move': ['移动', '位移', '调整位置', '移到', '挪到', '挪'],
             'resize': ['放大', '缩小', '调整大小', '改变大小'],
-            'setColor': ['颜色', '变色', '改色'],
+            'setColor': ['颜色', '变色', '改色', '变成'],
             'setText': ['文字', '文本', '标签'],
             'undo': ['撤销', '撤回', '回退'],
             'redo': ['重做', '恢复'],
@@ -124,3 +124,60 @@ class VoiceOptimizer:
                 if word in text:
                     return intent
         return None
+
+    async def llm_optimize(self, raw_text: str, intent_hint: Optional[str] = None) -> str:
+        """第二层：LLM 语义优化"""
+        import httpx
+        from app.config import settings
+
+        if not settings.LLM_API_KEY:
+            # 无 API key 时回退到规则预处理
+            return self.rule_preprocess(raw_text)
+
+        system_prompt = self._build_system_prompt()
+        user_content = raw_text
+        if intent_hint:
+            user_content = f"[意图提示: {intent_hint}]\n{raw_text}"
+
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.post(
+                    f"{settings.LLM_BASE_URL}/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {settings.LLM_API_KEY}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": settings.LLM_MODEL,
+                        "messages": [
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_content},
+                        ],
+                        "temperature": 0.1,
+                        "max_tokens": 200,
+                    },
+                )
+                response.raise_for_status()
+                result = response.json()
+                return result["choices"][0]["message"]["content"].strip()
+        except Exception:
+            # LLM 调用失败时回退到规则预处理
+            return self.rule_preprocess(raw_text)
+
+    def _build_system_prompt(self) -> str:
+        return """你是一个语音绘图指令优化器。将用户的口语化语音输入转换为简洁的标准绘图指令。
+
+规则：
+1. 去除语气词、重复、口误
+2. 保留核心意图和参数
+3. 输出简洁的指令文本
+
+示例：
+输入：嗯那个帮我画一个红色的长方形就是那种大一点的
+输出：创建红色长方形，尺寸放大
+
+输入：把那个蓝色的圆弄掉
+输出：删除蓝色圆形
+
+输入：emmm就是把那个方块移到右边去
+输出：移动方块到右边"""

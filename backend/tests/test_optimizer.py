@@ -14,7 +14,7 @@ class TestRulePreprocess:
         result = self.optimizer.rule_preprocess("嗯那个画一个圆")
         assert "嗯" not in result
         assert "那个" not in result
-        assert "圆" in result
+        assert "circle" in result
 
     def test_colloquial_mapping(self):
         """测试口语化映射"""
