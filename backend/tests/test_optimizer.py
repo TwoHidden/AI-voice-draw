@@ -3,46 +3,69 @@ import pytest
 from app.optimizer import VoiceOptimizer
 
 
-class TestRulePreprocess:
-    """规则预处理测试"""
+class TestDenoiseLayer:
+    """去噪层测试"""
 
     def setup_method(self):
-        self.optimizer = VoiceOptimizer()
+        self.opt = VoiceOptimizer()
 
     def test_remove_filler_words(self):
-        """测试去除填充词"""
-        result = self.optimizer.rule_preprocess("嗯那个画一个圆")
+        """去除语气词"""
+        result = self.opt.denoise("嗯那个帮我画一个红色的长方形")
         assert "嗯" not in result
         assert "那个" not in result
-        assert "circle" in result
+        assert "画一个红色的长方形" in result
 
-    def test_colloquial_mapping(self):
-        """测试口语化映射"""
-        result = self.optimizer.rule_preprocess("画一个长方形")
-        assert "创建" in result
-        assert "rect" in result
+    def test_remove_multiple_fillers(self):
+        """去除多个语气词"""
+        result = self.opt.denoise("emmm就是然后那个画一个圆")
+        assert "emmm" not in result
+        assert "就是" not in result
+        assert "然后" not in result
 
-    def test_shape_standardization(self):
-        """测试形状名标准化"""
-        result = self.optimizer.rule_preprocess("画一个圆形")
-        assert "circle" in result
-
-    def test_color_standardization(self):
-        """测试颜色标准化"""
-        result = self.optimizer.rule_preprocess("红色的长方形")
-        assert "#FF0000" in result
-        assert "rect" in result
-
-    def test_extract_intent(self):
-        """测试意图提取"""
-        assert self.optimizer.extract_intent_hint("画一个圆") == "create"
-        assert self.optimizer.extract_intent_hint("删掉那个") == "delete"
-        assert self.optimizer.extract_intent_hint("移到左边") == "move"
-        assert self.optimizer.extract_intent_hint("放大一点") == "resize"
-        assert self.optimizer.extract_intent_hint("变成红色") == "setColor"
-        assert self.optimizer.extract_intent_hint("撤销") == "undo"
+    def test_preserve_meaningful_content(self):
+        """保留有意义的内容"""
+        result = self.opt.denoise("画一个红色的长方形")
+        assert "画" in result
+        assert "红色" in result
+        assert "长方形" in result
 
     def test_empty_input(self):
-        """测试空输入"""
-        assert self.optimizer.rule_preprocess("") == ""
-        assert self.optimizer.rule_preprocess("   ") == ""
+        """空输入"""
+        assert self.opt.denoise("") == ""
+        assert self.opt.denoise("   ") == ""
+
+    def test_pure_filler(self):
+        """纯语气词"""
+        result = self.opt.denoise("嗯嗯嗯啊啊啊")
+        assert result.strip() == ""
+
+
+class TestVerbStandardize:
+    """动词标准化测试"""
+
+    def setup_method(self):
+        self.opt = VoiceOptimizer()
+
+    def test_create_verbs(self):
+        """创建类动词"""
+        for verb in ["画一个", "画个", "弄个", "搞个", "来个", "做个"]:
+            result = self.opt.standardize_verbs(f"{verb}圆")
+            assert "创建" in result, f"'{verb}' 应标准化为 '创建'"
+
+    def test_delete_verbs(self):
+        """删除类动词"""
+        for verb in ["删掉", "去掉", "弄掉", "搞掉"]:
+            result = self.opt.standardize_verbs(f"{verb}那个圆")
+            assert "删除" in result, f"'{verb}' 应标准化为 '删除'"
+
+    def test_move_verbs(self):
+        """移动类动词"""
+        for verb in ["挪一下", "搬到", "放到", "移到"]:
+            result = self.opt.standardize_verbs(f"{verb}右边")
+            assert "移动" in result, f"'{verb}' 应标准化为 '移动'"
+
+    def test_undo_redo(self):
+        """撤销/重做"""
+        assert "undo" in self.opt.standardize_verbs("撤销")
+        assert "redo" in self.opt.standardize_verbs("恢复")
