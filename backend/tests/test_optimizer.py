@@ -112,22 +112,11 @@ class TestShapeColorStandardize:
         assert "rect" in result
 
 
-class TestFuzzyExpression:
-    """模糊表达测试"""
+class TestReferencePatterns:
+    """指代模式测试"""
 
     def setup_method(self):
         self.opt = VoiceOptimizer()
-
-    def test_relative_position(self):
-        """相对位置解析"""
-        for pos_key in ["右边", "左边", "上面", "下面", "中间"]:
-            assert pos_key in self.opt.POSITION_MAP
-
-    def test_relative_scale(self):
-        """相对尺寸解析"""
-        assert self.opt.SCALE_MAP["大一点"] > 1.0
-        assert self.opt.SCALE_MAP["小一点"] < 1.0
-        assert self.opt.SCALE_MAP["放大"] > self.opt.SCALE_MAP["大一点"]
 
     def test_reference_patterns(self):
         """指代模式存在"""

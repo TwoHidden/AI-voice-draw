@@ -59,25 +59,6 @@ class VoiceOptimizer:
         "棕色": "#8B4513", "棕": "#8B4513", "褐色": "#8B4513",
     }
 
-    # 相对位置映射
-    POSITION_MAP = {
-        "右边": {"x": "+200"}, "左边": {"x": "-200"},
-        "上面": {"y": "-200"}, "下面": {"y": "+200"},
-        "右上": {"x": "+200", "y": "-200"}, "左下": {"x": "-200", "y": "+200"},
-        "左上": {"x": "-200", "y": "-200"}, "右下": {"x": "+200", "y": "+200"},
-        "中间": {"x": "400", "y": "300"}, "居中": {"x": "400", "y": "300"},
-        "右边去": {"x": "+200"}, "左边去": {"x": "-200"},
-    }
-
-    # 相对尺寸映射
-    SCALE_MAP = {
-        "大一点": 1.3, "大一些": 1.3, "大点": 1.3, "大一点的": 1.3,
-        "小一点": 0.7, "小一些": 0.7, "小点": 0.7, "小一点的": 0.7,
-        "放大": 1.5, "缩小": 0.5,
-        "很大": 2.0, "很小": 0.3,
-        "大两倍": 2.0, "小一半": 0.5, "缩小一半": 0.5,
-    }
-
     # 指代消解模式
     REFERENCE_PATTERNS = [
         (r"刚才那个|最后那个|最后画的|刚才画的", "last_created"),
@@ -120,10 +101,9 @@ class VoiceOptimizer:
         return result
 
     def rule_preprocess(self, text: str) -> str:
-        """完整规则预处理管道：指代消解 → 去噪 → 颜色指代 → 动词 → 形状 → 颜色"""
+        """完整规则预处理管道：指代消解 → 去噪 → 动词 → 形状 → 颜色"""
         result = self.resolve_references(text)
         result = self.denoise(result)
-        result = self.resolve_color_references(result)
         result = self.standardize_verbs(result)
         result = self.standardize_shapes(result)
         result = self.standardize_colors(result)
@@ -158,18 +138,6 @@ class VoiceOptimizer:
             result = re.sub(pattern, target, result)
         return result
 
-    def resolve_color_references(self, text: str) -> str:
-        """颜色指代消解 — 匹配 '那个XX的' 中的颜色词（应在去噪后调用）"""
-        result = text
-        color_ref = re.search(r"那个(\w{1,2})的", result)
-        if color_ref:
-            color_word = color_ref.group(1)
-            for color_cn, color_hex in self.COLOR_MAP.items():
-                if color_cn in color_word or color_word in color_cn:
-                    result = result[:color_ref.start()] + f"by_color:{color_hex}" + result[color_ref.end():]
-                    break
-        return result
-
     async def optimize(self, raw_text: str, canvas_state=None) -> OptimizeResult:
         """主入口：规则引擎 → (可选 LLM) → 返回优化结果"""
         if not raw_text or not raw_text.strip():
@@ -182,28 +150,30 @@ class VoiceOptimizer:
             )
 
         # Layer 1: 规则引擎管道
-        # 指代消解必须在去噪之前，否则 "那个" 被移除后 "刚才那个" 无法匹配
         matched_rules = []
-        ref_result = self.resolve_references(raw_text, canvas_state)
-        if ref_result != raw_text:
+        original = raw_text.strip()
+
+        # 1. 指代消解
+        ref_result = self.resolve_references(original)
+        if ref_result != original:
             matched_rules.append("reference")
 
-        rule_result = self.denoise(ref_result)
-        if rule_result != ref_result.strip():
+        # 2. 去噪
+        denoised = self.denoise(ref_result)
+        if denoised != ref_result:
             matched_rules.append("denoise")
 
-        color_ref_result = self.resolve_color_references(rule_result)
-        if color_ref_result != rule_result:
-            matched_rules.append("color_ref")
-
-        verb_result = self.standardize_verbs(color_ref_result)
-        if verb_result != rule_result:
+        # 3. 动词标准化
+        verb_result = self.standardize_verbs(denoised)
+        if verb_result != denoised:
             matched_rules.append("verb")
 
+        # 4. 形状标准化
         shape_result = self.standardize_shapes(verb_result)
         if shape_result != verb_result:
             matched_rules.append("shape")
 
+        # 5. 颜色标准化
         color_result = self.standardize_colors(shape_result)
         if color_result != shape_result:
             matched_rules.append("color")
@@ -280,7 +250,7 @@ class VoiceOptimizer:
 1. 去除语气词、重复、口误
 2. 保留核心意图和参数
 3. 输出简洁的指令文本
-4. 颜色用中文名即可，解析器会处理
+4. 颜色使用十六进制代码（如 #FF0000 表示红色）
 
 支持的操作：创建、删除、移动、resize、setColor、setText、undo、redo
 支持的形状：rect、circle、ellipse、triangle、diamond、line、arrow
@@ -301,20 +271,3 @@ class VoiceOptimizer:
 输入：画个粉红色的三角形放在中间
 输出：创建粉色三角形，放在中间"""
 
-    def extract_intent_hint(self, text: str) -> Optional[str]:
-        """从文本中提取意图提示"""
-        keywords = {
-            "create": ["创建", "新建", "添加", "画"],
-            "delete": ["删除", "清除", "移除"],
-            "move": ["移动", "位移", "调整位置"],
-            "resize": ["放大", "缩小", "调整大小"],
-            "setColor": ["颜色", "变色", "改色"],
-            "setText": ["文字", "文本", "标签"],
-            "undo": ["撤销", "撤回", "回退"],
-            "redo": ["重做", "恢复"],
-        }
-        for intent, words in keywords.items():
-            for word in words:
-                if word in text:
-                    return intent
-        return None

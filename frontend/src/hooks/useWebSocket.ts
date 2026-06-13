@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { CanvasState, ShapeResponse, WSMessage } from '../types';
+import type { CanvasState, WSMessage } from '../types';
 
 interface UseWebSocketOptions {
   url: string;
@@ -7,10 +7,6 @@ interface UseWebSocketOptions {
   onAsrResult?: (text: string) => void;
   onOptimizeResult?: (result: import('../types').OptimizeResult) => void;
   onError?: (msg: string) => void;
-}
-
-function convertShape(s: ShapeResponse) {
-  return { ...s };
 }
 
 export function useWebSocket({ url, onStateUpdate, onAsrResult, onOptimizeResult, onError }: UseWebSocketOptions) {
@@ -51,7 +47,7 @@ export function useWebSocket({ url, onStateUpdate, onAsrResult, onOptimizeResult
           case 'state_update':
             const data = msg.data as any;
             onStateUpdate?.({
-              shapes: (data.shapes || []).map(convertShape),
+              shapes: data.shapes || [],
               selectedId: data.selected_id ?? null,
             });
             break;
