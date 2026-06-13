@@ -127,6 +127,45 @@ class VoiceOptimizer:
         result = self.standardize_colors(result)
         return result
 
+    def calculate_confidence(
+        self, original: str, processed: str, matched_rules: list[str]
+    ) -> float:
+        """计算规则引擎处理的置信度 (0.0 ~ 1.0)"""
+        score = 0.0
+        if matched_rules:
+            score += 0.3
+        # 检查是否识别到了形状
+        if any(shape in processed for shape in self.SHAPE_MAP.values()):
+            score += 0.3
+        # 检查是否识别到了操作
+        operations = ["创建", "删除", "移动", "resize", "setColor", "setText", "undo", "redo"]
+        if any(op in processed for op in operations):
+            score += 0.2
+        # 检查是否识别到了颜色
+        if any(c in processed for c in self.COLOR_MAP.values()):
+            score += 0.1
+        # 没有大量未识别字符
+        if len(processed) <= len(original) * 2:
+            score += 0.1
+        return min(score, 1.0)
+
+    def resolve_references(self, text: str, canvas_state=None) -> str:
+        """指代消解 — 将代词引用转换为具体标识"""
+        result = text
+        for pattern, target in self.REFERENCE_PATTERNS:
+            result = re.sub(pattern, target, result)
+
+        # 动态匹配 "那个XX的" 模式
+        color_ref = re.search(r"那个(\w+)的", result)
+        if color_ref:
+            color_word = color_ref.group(1)
+            for color_cn, color_hex in self.COLOR_MAP.items():
+                if color_cn in color_word or color_word in color_cn:
+                    result = result[:color_ref.start()] + f"by_color:{color_hex}" + result[color_ref.end():]
+                    break
+
+        return result
+
     # 临时保留：供 main.py 使用，将在 Task 5 中替换
     def extract_intent_hint(self, text: str) -> Optional[str]:
         """从文本中提取意图提示（临时保留）"""
