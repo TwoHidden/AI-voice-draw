@@ -1,122 +1,98 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useState, useCallback } from 'react';
+import Canvas from './components/Canvas';
+import VoicePanel from './components/VoicePanel';
+import StatusPanel from './components/StatusPanel';
+import { useWebSocket } from './hooks/useWebSocket';
+import { useExport } from './hooks/useExport';
+import type { CanvasState } from './types';
+import './App.css';
 
-function App() {
-  const [count, setCount] = useState(0)
+const WS_URL = `ws://${window.location.hostname}:8000/ws`;
+
+export default function App() {
+  const [canvasState, setCanvasState] = useState<CanvasState>({ shapes: [], selectedId: null });
+  const [asrResult, setAsrResult] = useState<string>('');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [history, setHistory] = useState<string[]>([]);
+  const [error, setError] = useState<string>('');
+
+  const handleStateUpdate = useCallback((state: CanvasState) => {
+    setCanvasState(state);
+    setIsProcessing(false);
+    setHistory(prev => [...prev, `操作完成，当前 ${state.shapes.length} 个图形`]);
+  }, []);
+
+  const handleAsrResult = useCallback((text: string) => {
+    setAsrResult(text);
+    setHistory(prev => [...prev, `语音识别: ${text}`]);
+  }, []);
+
+  const handleError = useCallback((msg: string) => {
+    setError(msg);
+    setIsProcessing(false);
+    setTimeout(() => setError(''), 3000);
+  }, []);
+
+  const { connected, sendText, sendAudio } = useWebSocket({
+    url: WS_URL,
+    onStateUpdate: handleStateUpdate,
+    onAsrResult: handleAsrResult,
+    onError: handleError,
+  });
+
+  const { exportSVG, exportPNG } = useExport();
+
+  const handleSendText = useCallback((text: string) => {
+    setIsProcessing(true);
+    setHistory(prev => [...prev, `发送指令: ${text}`]);
+    sendText(text);
+  }, [sendText]);
+
+  const handleSendAudio = useCallback((blob: Blob) => {
+    setIsProcessing(true);
+    sendAudio(blob);
+  }, [sendAudio]);
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <div className="app">
+      {/* 错误提示 */}
+      {error && <div className="error-bar">{error}</div>}
 
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
+      {/* 头部 */}
+      <header className="app-header">
+        <h1>AI 语音绘图工具</h1>
+        <div className="header-controls">
+          <span className={`status ${connected ? 'online' : 'offline'}`}>
+            {connected ? '🟢 已连接' : '🔴 未连接'}
+          </span>
+          <button onClick={exportSVG} className="export-btn">导出 SVG</button>
+          <button onClick={exportPNG} className="export-btn">导出 PNG</button>
         </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+      </header>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+      {/* 主内容 */}
+      <main className="app-main">
+        <div className="canvas-area">
+          <Canvas
+            shapes={canvasState.shapes}
+            selectedId={canvasState.selectedId}
+            onSelect={(id) => setCanvasState(prev => ({ ...prev, selectedId: id }))}
+          />
+        </div>
+        <div className="sidebar">
+          <VoicePanel
+            onSendText={handleSendText}
+            onSendAudio={handleSendAudio}
+            isProcessing={isProcessing}
+            asrResult={asrResult}
+          />
+          <StatusPanel
+            shapes={canvasState.shapes}
+            selectedId={canvasState.selectedId}
+            history={history}
+          />
+        </div>
+      </main>
+    </div>
+  );
 }
-
-export default App
