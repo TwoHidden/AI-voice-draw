@@ -19,7 +19,8 @@ function convertShape(s: ShapeResponse) {
 export function useWebSocket({ url, onStateUpdate, onAsrResult, onError }: UseWebSocketOptions) {
   const [connected, setConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const heartbeatRef = useRef<ReturnType<typeof setInterval>>(undefined);
 
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
@@ -30,6 +31,12 @@ export function useWebSocket({ url, onStateUpdate, onAsrResult, onError }: UseWe
     ws.onopen = () => {
       setConnected(true);
       console.log('WebSocket 已连接');
+      // 心跳
+      heartbeatRef.current = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'ping' }));
+        }
+      }, 30000);
     };
 
     ws.onmessage = (event) => {
@@ -57,6 +64,7 @@ export function useWebSocket({ url, onStateUpdate, onAsrResult, onError }: UseWe
 
     ws.onclose = () => {
       setConnected(false);
+      clearInterval(heartbeatRef.current);
       console.log('WebSocket 断开，3秒后重连...');
       reconnectTimerRef.current = setTimeout(connect, 3000);
     };
@@ -70,6 +78,7 @@ export function useWebSocket({ url, onStateUpdate, onAsrResult, onError }: UseWe
     connect();
     return () => {
       clearTimeout(reconnectTimerRef.current);
+      clearInterval(heartbeatRef.current);
       wsRef.current?.close();
     };
   }, [connect]);
