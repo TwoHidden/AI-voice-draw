@@ -69,3 +69,43 @@ class TestVerbStandardize:
         """撤销/重做"""
         assert "undo" in self.opt.standardize_verbs("撤销")
         assert "redo" in self.opt.standardize_verbs("恢复")
+
+
+class TestShapeColorStandardize:
+    """形状和颜色标准化测试"""
+
+    def setup_method(self):
+        self.opt = VoiceOptimizer()
+
+    def test_shape_standardize_rect(self):
+        """长方形→rect"""
+        assert "rect" in self.opt.standardize_shapes("长方形")
+        assert "rect" in self.opt.standardize_shapes("方块")
+        assert "rect" in self.opt.standardize_shapes("矩形")
+        assert "rect" in self.opt.standardize_shapes("正方形")
+
+    def test_shape_standardize_circle(self):
+        """圆形→circle"""
+        assert "circle" in self.opt.standardize_shapes("圆形")
+        assert "circle" in self.opt.standardize_shapes("圆")
+
+    def test_shape_standardize_other(self):
+        """其他形状"""
+        assert "triangle" in self.opt.standardize_shapes("三角形")
+        assert "diamond" in self.opt.standardize_shapes("菱形")
+        assert "line" in self.opt.standardize_shapes("线条")
+        assert "arrow" in self.opt.standardize_shapes("箭头")
+
+    def test_color_standardize(self):
+        """颜色标准化"""
+        assert "#FF0000" in self.opt.standardize_colors("红色")
+        assert "#0000FF" in self.opt.standardize_colors("蓝色")
+        assert "#00CC00" in self.opt.standardize_colors("绿色")
+        assert "#000000" in self.opt.standardize_colors("黑色")
+
+    def test_full_rule_pipeline(self):
+        """完整规则管道端到端"""
+        result = self.opt.rule_preprocess("嗯那个画一个红色的长方形")
+        assert "嗯" not in result
+        assert "创建" in result
+        assert "rect" in result

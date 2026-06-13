@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 
 class VoiceOptimizer:
-    """语音指令优化器，三层管道：规则引擎 + LLM 语义优化 + 前端展示"""
+    """语音指令优化器 — 规则引擎管道 + LLM 优化（逐步构建中）"""
 
     # 填充词/语气词
     FILLER_WORDS = [
@@ -126,3 +126,26 @@ class VoiceOptimizer:
         result = self.standardize_shapes(result)
         result = self.standardize_colors(result)
         return result
+
+    # 临时保留：供 main.py 使用，将在 Task 5 中替换
+    def extract_intent_hint(self, text: str) -> Optional[str]:
+        """从文本中提取意图提示（临时保留）"""
+        keywords = {
+            "create": ["创建", "新建", "添加", "画"],
+            "delete": ["删除", "清除", "移除"],
+            "move": ["移动", "位移", "调整位置"],
+            "resize": ["放大", "缩小", "调整大小"],
+            "setColor": ["颜色", "变色", "改色"],
+            "setText": ["文字", "文本", "标签"],
+            "undo": ["撤销", "撤回", "回退"],
+            "redo": ["重做", "恢复"],
+        }
+        for intent, words in keywords.items():
+            for word in words:
+                if word in text:
+                    return intent
+        return None
+
+    async def llm_optimize(self, raw_text: str, intent_hint: Optional[str] = None) -> str:
+        """LLM 优化（临时保留，将被 optimize 替代）"""
+        return self.rule_preprocess(raw_text)

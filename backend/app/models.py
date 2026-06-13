@@ -57,4 +57,4 @@ class OptimizeResult(BaseModel):
     rule_processed: str     # 规则预处理结果
     final: str              # 最终优化结果
     used_llm: bool          # 是否调用了 LLM
-    confidence: float       # 规则引擎置信度 (0.0 ~ 1.0)
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)  # 规则引擎置信度
