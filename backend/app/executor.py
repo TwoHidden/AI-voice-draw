@@ -158,6 +158,8 @@ class CommandExecutor:
             return self._tool_create(args)
         elif name == "create_star_with_lines":
             return self._tool_create_star_with_lines(args)
+        elif name == "create_polygon_with_lines":
+            return self._tool_create_polygon_with_lines(args)
         elif name == "delete_shape":
             return self._tool_delete(args)
         elif name == "move_shape":
@@ -228,6 +230,44 @@ class CommandExecutor:
         saved_state = self.state.model_copy(deep=True)
 
         # 创建5条线段
+        for line in lines:
+            shape = Shape(
+                id=str(uuid.uuid4()),
+                type=ShapeType.LINE,
+                x=line["x"],
+                y=line["y"],
+                width=line["width"],
+                height=line["height"],
+                fill="none",
+                stroke=stroke,
+                text="",
+            )
+            self.state.shapes.append(shape)
+
+        # 推入 undo 栈
+        if self.state.model_dump() != saved_state.model_dump():
+            self.undo_stack.append(saved_state)
+            self.redo_stack.clear()
+
+        return self.state
+
+    def _tool_create_polygon_with_lines(self, args: dict) -> CanvasState:
+        """工具调用：用线段画正多边形"""
+        from app.tools import calculate_polygon_lines
+
+        sides = args.get("sides", 6)
+        cx = args.get("x", 200.0)
+        cy = args.get("y", 200.0)
+        size = args.get("size", 100.0)
+        stroke = args.get("stroke", "#000000")
+
+        # 计算N条线段
+        lines = calculate_polygon_lines(cx, cy, size, sides)
+
+        # 保存当前状态用于撤销
+        saved_state = self.state.model_copy(deep=True)
+
+        # 创建N条线段
         for line in lines:
             shape = Shape(
                 id=str(uuid.uuid4()),

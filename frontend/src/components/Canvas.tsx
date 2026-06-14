@@ -191,6 +191,32 @@ function renderShape(shape: Shape, isSelected: boolean, onSelect: () => void) {
       );
     }
 
+    case 'hexagon': {
+      const hcx = shape.x + shape.width / 2;
+      const hcy = shape.y + shape.height / 2;
+      const hr = Math.min(shape.width, shape.height) / 2;
+      const hexPoints: string[] = [];
+      for (let i = 0; i < 6; i++) {
+        const angle = (i * 60 - 90) * Math.PI / 180;
+        hexPoints.push(`${hcx + hr * Math.cos(angle)},${hcy + hr * Math.sin(angle)}`);
+      }
+      return (
+        <g {...commonProps}>
+          <polygon
+            points={hexPoints.join(' ')}
+            fill={shape.fill} stroke={strokeColor} strokeWidth={strokeWidth}
+          />
+          {shape.text && (
+            <text
+              x={hcx} y={hcy}
+              textAnchor="middle" dominantBaseline="central"
+              fontSize={14} fill="#333"
+            >{shape.text}</text>
+          )}
+        </g>
+      );
+    }
+
     default:
       return null;
   }
