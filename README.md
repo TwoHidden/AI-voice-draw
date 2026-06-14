@@ -2,6 +2,10 @@
 
 纯语音控制的绘图工具，支持语音创建、编辑、导出图形。基于 LLM Agent + Function Calling 架构，实现自然语言到绘图操作的直接转换。
 
+## Demo
+
+👉 [B 站演示视频](https://www.bilibili.com/video/BV1HrJK6ME5g/)
+
 ## 核心功能
 
 ### 语音交互
