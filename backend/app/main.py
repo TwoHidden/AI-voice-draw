@@ -46,6 +46,12 @@ async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     logger.info("WebSocket 连接建立")
 
+    # 新连接时重置画布状态
+    executor.state = CanvasState()
+    executor.undo_stack.clear()
+    executor.redo_stack.clear()
+    logger.info("画布状态已重置")
+
     try:
         while True:
             message = await websocket.receive()
