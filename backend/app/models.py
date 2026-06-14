@@ -32,8 +32,8 @@ class Shape(BaseModel):
     type: ShapeType
     x: float = 0.0
     y: float = 0.0
-    width: float = Field(default=100.0, ge=0)
-    height: float = Field(default=100.0, ge=0)
+    width: float = Field(default=100.0)  # 允许负数（线段方向）
+    height: float = Field(default=100.0)  # 允许负数（线段方向）
     fill: str = "#4A90D9"
     stroke: str = "#2C3E50"
     text: str = ""
