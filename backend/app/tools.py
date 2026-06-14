@@ -5,16 +5,22 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
-def calculate_polygon_lines(cx: float, cy: float, r: float, n: int) -> list[dict]:
-    """计算正N边形的N条线段坐标"""
+def calculate_polygon_lines(cx: float, cy: float, r: float, n: int, irregular: bool = False) -> list[dict]:
+    """计算N边形的N条线段坐标"""
     import math
+    import random
 
     points = []
     for i in range(n):
         angle = (i * 360 / n - 90) * math.pi / 180
+        # 不规则多边形：随机偏移半径
+        if irregular:
+            r_offset = r * random.uniform(0.6, 1.4)
+        else:
+            r_offset = r
         points.append({
-            "x": cx + r * math.cos(angle),
-            "y": cy + r * math.sin(angle)
+            "x": cx + r_offset * math.cos(angle),
+            "y": cy + r_offset * math.sin(angle)
         })
 
     lines = []
@@ -274,13 +280,17 @@ TOOLS_SCHEMA = [
         "type": "function",
         "function": {
             "name": "create_polygon_with_lines",
-            "description": "用线段画正多边形。当用户说'用线段画六边形'、'用线段画五边形'等时使用此工具。",
+            "description": "用线段画多边形。当用户说'用线段画六边形'、'用线段画五边形'、'画不规则七边形'等时使用此工具。",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "sides": {
                         "type": "integer",
-                        "description": "边数，如3(三角形)、4(四边形)、5(五边形)、6(六边形)"
+                        "description": "边数，如3(三角形)、4(四边形)、5(五边形)、6(六边形)、7(七边形)"
+                    },
+                    "irregular": {
+                        "type": "boolean",
+                        "description": "是否为不规则多边形，默认false。当用户说'不规则'时设为true"
                     },
                     "stroke": {
                         "type": "string",

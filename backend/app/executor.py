@@ -252,17 +252,18 @@ class CommandExecutor:
         return self.state
 
     def _tool_create_polygon_with_lines(self, args: dict) -> CanvasState:
-        """工具调用：用线段画正多边形"""
+        """工具调用：用线段画多边形"""
         from app.tools import calculate_polygon_lines
 
         sides = args.get("sides", 6)
+        irregular = args.get("irregular", False)
         cx = args.get("x", 200.0)
         cy = args.get("y", 200.0)
         size = args.get("size", 100.0)
         stroke = args.get("stroke", "#000000")
 
         # 计算N条线段
-        lines = calculate_polygon_lines(cx, cy, size, sides)
+        lines = calculate_polygon_lines(cx, cy, size, sides, irregular)
 
         # 保存当前状态用于撤销
         saved_state = self.state.model_copy(deep=True)
