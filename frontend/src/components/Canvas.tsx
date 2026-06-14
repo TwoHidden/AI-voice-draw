@@ -143,6 +143,54 @@ function renderShape(shape: Shape, isSelected: boolean, onSelect: () => void) {
         </g>
       );
 
+    case 'star': {
+      const scx = shape.x + shape.width / 2;
+      const scy = shape.y + shape.height / 2;
+      const outerR = Math.min(shape.width, shape.height) / 2;
+      const innerR = outerR * 0.4;
+      const starPoints: string[] = [];
+      for (let i = 0; i < 5; i++) {
+        // 外顶点
+        const outerAngle = (i * 72 - 90) * Math.PI / 180;
+        starPoints.push(`${scx + outerR * Math.cos(outerAngle)},${scy + outerR * Math.sin(outerAngle)}`);
+        // 内顶点
+        const innerAngle = ((i * 72 + 36) - 90) * Math.PI / 180;
+        starPoints.push(`${scx + innerR * Math.cos(innerAngle)},${scy + innerR * Math.sin(innerAngle)}`);
+      }
+      return (
+        <g {...commonProps}>
+          <polygon
+            points={starPoints.join(' ')}
+            fill={shape.fill} stroke={strokeColor} strokeWidth={strokeWidth}
+          />
+          {shape.text && (
+            <text
+              x={scx} y={scy}
+              textAnchor="middle" dominantBaseline="central"
+              fontSize={14} fill="#333"
+            >{shape.text}</text>
+          )}
+        </g>
+      );
+    }
+
+    case 'curve': {
+      const startX = shape.x;
+      const startY = shape.y + shape.height;
+      const endX = shape.x + shape.width;
+      const endY = shape.y + shape.height;
+      const controlX = shape.x + shape.width / 2;
+      const controlY = shape.y;
+      return (
+        <g {...commonProps}>
+          <path
+            d={`M ${startX} ${startY} Q ${controlX} ${controlY} ${endX} ${endY}`}
+            fill="none" stroke={shape.stroke} strokeWidth={strokeWidth}
+          />
+        </g>
+      );
+    }
+
     default:
       return null;
   }

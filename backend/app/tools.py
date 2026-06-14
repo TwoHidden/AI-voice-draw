@@ -27,14 +27,14 @@ TOOLS_SCHEMA = [
         "type": "function",
         "function": {
             "name": "create_shape",
-            "description": "创建一个新的图形。支持长方形、圆形、椭圆、三角形、菱形、线条、箭头。",
+            "description": "创建一个新的图形。支持长方形、圆形、椭圆、三角形、菱形、线条、箭头、五角星、曲线。",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "shape_type": {
                         "type": "string",
-                        "enum": ["rect", "circle", "ellipse", "triangle", "diamond", "line", "arrow"],
-                        "description": "图形类型：rect(长方形), circle(圆形), ellipse(椭圆), triangle(三角形), diamond(菱形), line(线条), arrow(箭头)"
+                        "enum": ["rect", "circle", "ellipse", "triangle", "diamond", "line", "arrow", "star", "curve"],
+                        "description": "图形类型：rect(长方形), circle(圆形), ellipse(椭圆), triangle(三角形), diamond(菱形), line(线条), arrow(箭头), star(五角星), curve(曲线)"
                     },
                     "fill": {
                         "type": "string",
@@ -46,11 +46,11 @@ TOOLS_SCHEMA = [
                     },
                     "x": {
                         "type": "number",
-                        "description": "X坐标，默认400"
+                        "description": "X坐标，默认100"
                     },
                     "y": {
                         "type": "number",
-                        "description": "Y坐标，默认300"
+                        "description": "Y坐标，默认80"
                     },
                     "width": {
                         "type": "number",
@@ -79,7 +79,7 @@ TOOLS_SCHEMA = [
                     },
                     "shape_type": {
                         "type": "string",
-                        "enum": ["rect", "circle", "ellipse", "triangle", "diamond", "line", "arrow"],
+                        "enum": ["rect", "circle", "ellipse", "triangle", "diamond", "line", "arrow", "star", "curve"],
                         "description": "删除指定类型的最近一个图形"
                     }
                 }
@@ -236,17 +236,22 @@ def get_system_prompt(canvas_state: str = "") -> str:
 如果用户说"深蓝"、"浅蓝"等，使用合理的变体。
 
 ## 位置推断
-- 左边 → x: 150
+- 左边 → x: 100
 - 中间 → x: 400
-- 右边 → x: 650
-- 上边 → y: 150
-- 下边 → y: 450
+- 右边 → x: 600
+- 上边 → y: 80
+- 下边 → y: 400
+
+## 默认位置
+- 不指定位置时，使用 x: 100, y: 80（左上角）
 
 ## 默认大小
 - 长方形: width=200, height=150
 - 圆形: width=150, height=150
 - 椭圆: width=200, height=120
 - 三角形: width=180, height=160
+- 五角星: width=150, height=150
+- 曲线: width=200, height=100
 
 ## 规则
 1. 理解口语化表达，去除语气词、重复、口误

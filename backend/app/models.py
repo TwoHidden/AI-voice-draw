@@ -12,6 +12,8 @@ class ShapeType(str, Enum):
     DIAMOND = "diamond"
     LINE = "line"
     ARROW = "arrow"
+    STAR = "star"
+    CURVE = "curve"
 
 
 class OperationType(str, Enum):

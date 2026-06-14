@@ -182,14 +182,28 @@ class CommandExecutor:
         except ValueError:
             shape_type = ShapeType.RECT
 
+        # 根据形状类型设置默认大小
+        default_sizes = {
+            "rect": (200.0, 150.0),
+            "circle": (150.0, 150.0),
+            "ellipse": (200.0, 120.0),
+            "triangle": (180.0, 160.0),
+            "diamond": (150.0, 150.0),
+            "line": (200.0, 100.0),
+            "arrow": (200.0, 100.0),
+            "star": (150.0, 150.0),
+            "curve": (200.0, 100.0),
+        }
+        default_w, default_h = default_sizes.get(shape_type_str, (200.0, 150.0))
+
         command = Command(
             operation=OperationType.CREATE,
             shape_type=shape_type,
             properties={
-                "x": args.get("x", 400.0),
-                "y": args.get("y", 300.0),
-                "width": args.get("width", 200.0),
-                "height": args.get("height", 150.0),
+                "x": args.get("x", 100.0),
+                "y": args.get("y", 80.0),
+                "width": args.get("width", default_w),
+                "height": args.get("height", default_h),
                 "fill": args.get("fill", "#4A90D9"),
                 "stroke": args.get("stroke", "#2C3E50"),
             }

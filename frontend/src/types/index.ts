@@ -1,5 +1,5 @@
 /** 图形类型 */
-export type ShapeType = 'rect' | 'circle' | 'ellipse' | 'triangle' | 'diamond' | 'line' | 'arrow';
+export type ShapeType = 'rect' | 'circle' | 'ellipse' | 'triangle' | 'diamond' | 'line' | 'arrow' | 'star' | 'curve';
 
 /** 操作类型 */
 export type OperationType = 'create' | 'delete' | 'move' | 'resize' | 'setColor' | 'setText' | 'undo' | 'redo';
