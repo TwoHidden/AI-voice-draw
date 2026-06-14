@@ -69,8 +69,8 @@ class Agent:
                 # 提取 tool_calls
                 tool_calls = message.get("tool_calls", []) or []
 
-                # 提取文字回复（如果有）
-                content = message.get("content") or message.get("reasoning_content") or ""
+                # 提取文字回复（只用 content，不用 reasoning_content）
+                content = message.get("content") or ""
                 text_response = content.strip() if content else None
 
                 logger.info(f"Agent 返回 {len(tool_calls)} 个工具调用")
