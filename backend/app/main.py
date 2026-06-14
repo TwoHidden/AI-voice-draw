@@ -118,13 +118,15 @@ async def _process_and_execute(websocket: WebSocket, raw_text: str):
         await websocket.send_json({"type": "error", "data": "无法理解指令，请重试"})
         return
 
+    # 批量执行所有 tool_call，只发送最终状态
     for tool_call in result.tool_calls:
-        new_state = executor.execute_tool_call(tool_call)
-        # 发送更新后的画布状态
-        await websocket.send_json({
-            "type": "state_update",
-            "data": new_state.model_dump(),
-        })
+        executor.execute_tool_call(tool_call)
+
+    # 发送最终画布状态
+    await websocket.send_json({
+        "type": "state_update",
+        "data": executor.state.model_dump(),
+    })
 
 
 if __name__ == "__main__":
