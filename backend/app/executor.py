@@ -156,6 +156,8 @@ class CommandExecutor:
 
         if name == "create_shape":
             return self._tool_create(args)
+        elif name == "create_star_with_lines":
+            return self._tool_create_star_with_lines(args)
         elif name == "delete_shape":
             return self._tool_delete(args)
         elif name == "move_shape":
@@ -209,6 +211,43 @@ class CommandExecutor:
             }
         )
         return self.execute(command)
+
+    def _tool_create_star_with_lines(self, args: dict) -> CanvasState:
+        """工具调用：用5条线段画五角星"""
+        from app.tools import calculate_star_lines
+
+        cx = args.get("x", 175.0)
+        cy = args.get("y", 155.0)
+        size = args.get("size", 75.0)
+        stroke = args.get("stroke", "#000000")
+
+        # 计算5条线段
+        lines = calculate_star_lines(cx, cy, size)
+
+        # 保存当前状态用于撤销
+        saved_state = self.state.model_copy(deep=True)
+
+        # 创建5条线段
+        for line in lines:
+            shape = Shape(
+                id=str(uuid.uuid4()),
+                type=ShapeType.LINE,
+                x=line["x"],
+                y=line["y"],
+                width=line["width"],
+                height=line["height"],
+                fill="none",
+                stroke=stroke,
+                text="",
+            )
+            self.state.shapes.append(shape)
+
+        # 推入 undo 栈
+        if self.state.model_dump() != saved_state.model_dump():
+            self.undo_stack.append(saved_state)
+            self.redo_stack.clear()
+
+        return self.state
 
     def _tool_delete(self, args: dict) -> CanvasState:
         """工具调用：删除图形"""

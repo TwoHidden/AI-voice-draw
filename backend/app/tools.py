@@ -4,6 +4,41 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
+def calculate_star_lines(cx: float, cy: float, outer_r: float, inner_r: float = None) -> list[dict]:
+    """计算五角星的5条线段坐标"""
+    import math
+    if inner_r is None:
+        inner_r = outer_r * 0.382  # 黄金比例
+
+    points = []
+    for i in range(5):
+        # 外顶点
+        outer_angle = (i * 72 - 90) * math.pi / 180
+        points.append({
+            "x": cx + outer_r * math.cos(outer_angle),
+            "y": cy + outer_r * math.sin(outer_angle)
+        })
+        # 内顶点
+        inner_angle = ((i * 72 + 36) - 90) * math.pi / 180
+        points.append({
+            "x": cx + inner_r * math.cos(inner_angle),
+            "y": cy + inner_r * math.sin(inner_angle)
+        })
+
+    # 五角星的连线顺序: 0->2->4->6->8->0 (跳过内顶点)
+    lines = []
+    for i in range(5):
+        start = points[i * 2]
+        end = points[(i * 2 + 2) % 10]
+        lines.append({
+            "x": start["x"],
+            "y": start["y"],
+            "width": end["x"] - start["x"],
+            "height": end["y"] - start["y"]
+        })
+    return lines
+
 # 颜色映射表
 COLOR_MAP = {
     "红": "#FF0000", "红色": "#FF0000", "red": "#FF0000",
@@ -189,6 +224,34 @@ TOOLS_SCHEMA = [
     {
         "type": "function",
         "function": {
+            "name": "create_star_with_lines",
+            "description": "用5条线段画一个五角星。当用户说'用线段画五角星'、'用线段画星形'时使用此工具。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "stroke": {
+                        "type": "string",
+                        "description": "线段颜色，十六进制格式，默认 #000000"
+                    },
+                    "x": {
+                        "type": "number",
+                        "description": "中心点X坐标，默认175"
+                    },
+                    "y": {
+                        "type": "number",
+                        "description": "中心点Y坐标，默认155"
+                    },
+                    "size": {
+                        "type": "number",
+                        "description": "五角星大小（外接圆半径），默认75"
+                    }
+                }
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "undo",
             "description": "撤销上一步操作",
             "parameters": {
@@ -259,8 +322,9 @@ def get_system_prompt(canvas_state: str = "") -> str:
 3. 如果指令模糊，使用合理默认值而非询问
 4. 颜色必须是十六进制格式
 5. 只调用工具，不要输出额外解释
-6. "五角星"、"星形"、"星星"都使用 star 类型，不要用 line 拼接
-7. "曲线"、"弧线"、"弯线"都使用 curve 类型
+6. "画五角星"、"画星形" → 使用 create_shape + star 类型
+7. "用线段画五角星"、"用线段画星形" → 使用 create_star_with_lines 工具
+8. "曲线"、"弧线"、"弯线" → 使用 create_shape + curve 类型
 
 ## 当前画布状态
 {canvas_state}
